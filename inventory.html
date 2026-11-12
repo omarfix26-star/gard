@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>نظام جرد البضاعة 📦</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{--acc:#2563eb;--grn:#16a34a;--mut:#64748b;--bd:#e2e8f0;--danger:#dc2626;--card:#fff;}
+body{margin:0;font-family:system-ui,"Segoe UI",Tahoma,sans-serif;background:#f1f5f9;color:#0f172a;}
+#login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a,#1e3a8a);z-index:50;padding:20px;}
+.loginbox{background:#fff;border-radius:20px;padding:26px;width:100%;max-width:390px;box-shadow:0 20px 60px rgba(0,0,0,.4);}
+.loginbox h2{margin:0 0 4px;font-size:22px;}
+.loginbox p{margin:0 0 18px;color:var(--mut);font-size:13px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:13px;color:var(--mut);margin-bottom:6px;}
+.field input{width:100%;padding:12px;border:1px solid var(--bd);border-radius:12px;font-size:15px;}
+.loginbtn{width:100%;padding:14px;border:none;border-radius:12px;background:var(--acc);color:#fff;font-weight:800;font-size:16px;cursor:pointer;}
+.err{color:var(--danger);font-size:13px;margin-top:10px;min-height:16px;text-align:center;}
+header{background:#0f172a;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:10;}
+header h1{font-size:17px;margin:0;}
+.hc{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.badge2{background:#1e293b;padding:5px 10px;border-radius:10px;font-size:12px;}
+.badge2 b{color:#38bdf8;}
+.status{font-size:12px;padding:5px 11px;border-radius:999px;background:#334155;color:#fff;}
+.status.online{background:#065f46;}.status.offline{background:#7f1d1d;}.status.connecting{background:#78350f;}
+.lgt{background:#334155;border:none;color:#fff;border-radius:9px;padding:7px 11px;cursor:pointer;font-size:13px;}
+.toggleBtn{background:var(--acc);border:none;color:#fff;border-radius:9px;padding:7px 11px;cursor:pointer;font-size:13px;font-weight:700;}
+.wrap{max-width:1150px;margin:0 auto;padding:16px;}
+.card{background:var(--card);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 12px rgba(0,0,0,.06);}
+#reader{border-radius:14px;overflow:hidden;background:#000;min-height:260px;}
+.cambtn{display:none;width:100%;padding:16px;font-size:17px;font-weight:700;color:#fff;background:var(--grn);border:none;border-radius:14px;margin-top:10px;cursor:pointer;}
+.camerr{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:12px;padding:12px;font-size:13px;margin-top:10px;line-height:1.8;display:none;}
+.switchcam{background:#e2e8f0;border:none;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;}
+.scanline{color:var(--mut);font-size:12px;text-align:center;margin-top:8px;}
+.lastbox{text-align:center;padding:8px;}
+.lastbox .code{font-size:26px;font-weight:800;color:var(--grn);direction:ltr;}
+.lastbox .nm{color:var(--acc);font-size:15px;margin-top:4px;min-height:18px;}
+.row{display:flex;gap:8px;align-items:center;}
+.qtybar{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:6px;}
+.qtybar button{width:46px;height:46px;border-radius:12px;border:none;font-size:24px;font-weight:800;background:#e2e8f0;cursor:pointer;}
+.qtybar .val{font-size:26px;font-weight:800;min-width:40px;text-align:center;}
+label.lbl{font-size:13px;color:var(--mut);display:block;margin-bottom:6px;}
+.inp{width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);font-size:15px;}
+.btn{padding:11px 14px;border:none;border-radius:12px;font-weight:700;font-size:14px;cursor:pointer;}
+.btn.p{background:var(--acc);color:#fff;}.btn.g{background:var(--grn);color:#fff;}.btn.d{background:#fee2e2;color:var(--danger);}.btn.s{background:#e2e8f0;color:#0f172a;}.btn.o{background:#f59e0b;color:#fff;}
+.recent{max-height:220px;overflow:auto;}
+.item{display:flex;justify-content:space-between;align-items:center;padding:9px;border-bottom:1px solid var(--bd);}
+.item .c{direction:ltr;font-weight:700;}
+.item .t{font-size:11px;color:var(--mut);}
+.badge{background:#e2e8f0;border-radius:8px;padding:2px 8px;font-size:12px;}
+.totals{display:flex;gap:10px;}
+.totals .t{flex:1;text-align:center;background:#f8fafc;border-radius:12px;padding:10px;}
+.totals .t b{display:block;font-size:22px;color:var(--grn);}
+.totals .t span{font-size:11px;color:var(--mut);}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;}
+.kpi{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.06);}
+.kpi b{display:block;font-size:28px;}.kpi span{color:var(--mut);font-size:13px;}
+.kpi.g b{color:var(--grn);}.kpi.b b{color:var(--acc);}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
+.toolbar input.search{flex:1;min-width:160px;padding:11px 14px;border:1px solid var(--bd);border-radius:12px;font-size:15px;}
+.tablewrap{background:var(--card);border-radius:16px;overflow:auto;box-shadow:0 2px 12px rgba(0,0,0,.06);}
+table{width:100%;border-collapse:collapse;}
+th,td{padding:11px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:14px;}
+th{background:#f8fafc;color:var(--mut);font-weight:700;}
+td.code{direction:ltr;font-weight:700;font-family:monospace;}
+td input{width:100%;border:1px solid transparent;background:transparent;padding:6px;border-radius:8px;font-size:14px;}
+td input:focus{border-color:var(--acc);background:#fff;outline:none;}
+.qc{display:flex;align-items:center;gap:6px;justify-content:center;}
+.qc button{width:28px;height:28px;border:none;border-radius:8px;background:#e2e8f0;font-weight:800;cursor:pointer;}
+.qc .v{min-width:30px;text-align:center;font-weight:800;}
+.del{background:none;border:none;color:var(--danger);cursor:pointer;font-size:17px;}
+.empty{padding:40px;text-align:center;color:var(--mut);}
+.flash{animation:fl 1.2s;}@keyframes fl{0%{background:#dcfce7;}100%{background:transparent;}}
+.hint{color:var(--mut);font-size:12px;margin-top:12px;line-height:1.8;}
+.seg{display:flex;gap:6px;background:#e2e8f0;padding:4px;border-radius:12px;margin-bottom:14px;width:fit-content;}
+.seg button{border:none;background:transparent;padding:8px 16px;border-radius:9px;font-weight:700;cursor:pointer;color:var(--mut);font-size:14px;}
+.seg button.active{background:#fff;color:var(--acc);box-shadow:0 1px 4px rgba(0,0,0,.1);}
+.sessbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--card);border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.06);}
+.sess-pill{padding:6px 12px;border-radius:999px;font-weight:700;font-size:13px;}
+.sess-pill.open{background:#dcfce7;color:#166534;}.sess-pill.closed{background:#fee2e2;color:#991b1b;}
+.frm{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;align-items:end;}
+.frm input,.frm select{padding:10px;border:1px solid var(--bd);border-radius:10px;font-size:14px;width:100%;}
+.chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mut);}
+.tag{background:#eff6ff;color:var(--acc);border-radius:8px;padding:2px 8px;font-size:12px;margin:0 2px;display:inline-block;}
+.lockout{position:fixed;inset:0;background:rgba(15,23,42,.97);color:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:60;padding:30px;text-align:center;}
+.lockout .ic{font-size:64px;margin-bottom:16px;}
+.lockout h2{font-size:24px;margin:0 0 10px;}
+.lockout p{color:#cbd5e1;margin:0 0 24px;}
+.waitbox{text-align:center;padding:50px 20px;}
+.waitbox .ic{font-size:64px;}
+.waitbox h2{margin:12px 0 6px;}
+.waitbox p{color:var(--mut);}
+.setupbox{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a,#1e3a8a);z-index:55;padding:20px;}
+.setupbox .loginbox{max-width:430px;}
+.setupbox textarea{width:100%;padding:12px;border:1px solid var(--bd);border-radius:12px;font-size:13px;direction:ltr;font-family:monospace;min-height:90px;}
+.setupbox .hint{font-size:12px;line-height:1.9;}
+.offbar{display:none;background:#fef3c7;color:#92400e;padding:9px 14px;font-size:13px;text-align:center;font-weight:700;}
+.offbar.on{display:block;}
+@media(max-width:720px){.cards{grid-template-columns:repeat(2,1fr);}}
+@media print{header,.toolbar,.hint,.del,.qc button,.seg,.sessbar{display:none;}}
+</style>
+</head>
+<body>
+
+<div class="setupbox" id="setupBox" style="display:none">
+ <div class="loginbox">
+  <h2>⚙️ إعداد الاتصال بساب بيس</h2>
+  <p>الصق رابط المشروع والمفتاح العام (anon / publishable)</p>
+  <div class="field"><label style="font-size:12px;color:#64748b">Project URL</label>
+   <input id="apiUrl" placeholder="https://xxxx.supabase.co" style="direction:ltr"></div>
+  <div class="field"><label style="font-size:12px;color:#64748b">Publishable / anon key</label>
+   <textarea id="sbKey" placeholder="sb_publishable_..." style="width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:12px;font-size:12px;direction:ltr;font-family:monospace;min-height:70px"></textarea></div>
+  <button class="loginbtn" id="saveApi">حفظ ومتابعة</button>
+  <div class="err" id="apiErr"></div>
+  <div class="hint">المفتاح ده <b>عام</b> وآمن للواجهة — مش المفتاح السري.</div>
+ </div>
+</div>
+
+<div id="login">
+ <div class="loginbox">
+  <h2>🔐 نظام جرد البضاعة</h2>
+  <p>سجّل الدخول بحسابك لبدء الجرد</p>
+  <div class="field"><label>اسم المستخدم أو البريد</label><input id="lgUser" placeholder="username / email" autocomplete="username" value="omarfix26@gmail.com"></div>
+  <div class="field"><label>كلمة المرور</label><input id="lgPass" type="password" placeholder="••••••" autocomplete="current-password"></div>
+  <button class="loginbtn" id="lgBtn">دخول</button>
+  <div class="hint" style="text-align:center;margin-top:10px">الدخول الأول: <b style="direction:ltr;display:inline-block">omarfix26@gmail.com</b> / <b>Omar@1701</b></div>
+  <div class="err" id="lgErr"></div>
+ </div>
+</div>
+
+<div class="lockout" id="lockout">
+ <div class="ic">🔒</div>
+ <h2 id="lockTitle">تم إغلاق الجرد</h2>
+ <p id="lockMsg">تم إغلاق الجرد بواسطة المدير</p>
+ <button class="loginbtn" style="max-width:240px" id="lockBack">رجوع لتسجيل الدخول</button>
+</div>
+
+<div id="app" style="display:none">
+ <header>
+  <h1>📦 جرد البضاعة</h1>
+  <div class="hc">
+   <span class="badge2" id="hdUser" style="display:none"></span>
+   <span class="badge2" id="hdBranch" style="display:none"></span>
+   <button class="toggleBtn" id="toggleBtn" style="display:none">📊 اللوحة</button>
+   <span id="status" class="status connecting">جارِ الاتصال…</span>
+   <button class="lgt" id="logoutBtn">خروج</button>
+  </div>
+ </header>
+ <div class="offbar" id="offBar">⚠️ انقطع الاتصال بالسحابة — الأرصد بتتجمّع وهتترفع أول ما يرجع الاتصال</div>
+
+ <!-- ============ انتظار فتح الجرد ============ -->
+ <div id="waitView" class="waitbox" style="display:none">
+  <div class="ic">⏳</div>
+  <h2>في انتظار فتح الجرد</h2>
+  <p>المدير لسه مفتحش جرد لمركز التكلفة بتاعك. أول ما يفتح، النظام هيفتح لوحده.</p>
+ </div>
+
+ <!-- ============ الماسح ============ -->
+ <div id="scannerView" class="wrap" style="display:none;max-width:560px">
+  <div class="card">
+   <div id="reader"></div>
+   <button class="cambtn" id="startBtn">▶️ تشغيل الكاميرا</button>
+   <div class="camerr" id="camErr"></div>
+   <div class="scanline" id="pushHint" style="color:#b45309;font-weight:700"></div>
+   <div class="scanline" id="camHint">وجّه الكاميرا على الباركود — الرصد تلقائي</div>
+   <button class="switchcam" id="switchCam" style="display:none">🔄 تبديل الكاميرا</button>
+  </div>
+  <div class="card">
+   <div class="lastbox"><div class="code" id="lastCode">—</div><div class="nm" id="lastName"></div></div>
+   <label class="lbl" style="text-align:center">الكمية لكل عملية مسح</label>
+   <div class="qtybar"><button id="qMinus">−</button><div class="val" id="qVal">1</div><button id="qPlus">+</button></div>
+  </div>
+  <div class="card">
+   <label class="lbl">إدخال باركود يدوي</label>
+   <div class="row"><input id="manual" class="inp" inputmode="numeric" placeholder="اكتب رقم الباركود…"><button class="btn p" id="manualAdd">إضافة</button></div>
+  </div>
+  <div class="card">
+   <div class="totals"><div class="t"><b id="tUnits">0</b><span>إجمالي القطع</span></div><div class="t"><b id="tSkus">0</b><span>أصناف</span></div><div class="t"><b id="tMine">0</b><span>مسحتُها الآن</span></div></div>
+  </div>
+  <div class="card">
+   <div class="row" style="justify-content:space-between;margin-bottom:8px"><b>آخر عمليات المسح</b><span class="badge" id="recentCount">0</span></div>
+   <div class="recent" id="recent"></div>
+  </div>
+ </div>
+
+ <!-- ============ لوحة المدير ============ -->
+ <div id="adminView" class="wrap" style="display:none">
+  <div class="seg">
+   <button data-tab="stock" class="active">📦 الجرد</button>
+   <button data-tab="users">👥 المستخدمون</button>
+   <button data-tab="centers">🏬 مراكز التكلفة</button>
+   <button data-tab="log">📜 السجل</button>
+  </div>
+
+  <div id="tab-stock">
+   <div class="sessbar">
+    <b>حالة الجرد:</b>
+    <span class="sess-pill closed" id="sessPill">مغلق</span>
+    <select id="sessCenter" style="padding:8px;border-radius:10px;border:1px solid var(--bd);min-width:170px"></select>
+    <button class="btn g" id="openBtn">▶️ فتح الجرد</button>
+    <button class="btn d" id="closeBtn">⏹️ إغلاق الجرد</button>
+    <span style="font-size:12px;color:var(--mut)" id="sessInfo"></span>
+   </div>
+   <div class="cards">
+    <div class="kpi b"><b id="kUnits">0</b><span>إجمالي القطع المجرودة</span></div>
+    <div class="kpi"><b id="kSkus">0</b><span>عدد الأصناف</span></div>
+    <div class="kpi g"><b id="kValue">0</b><span>إجمالي القيمة</span></div>
+    <div class="kpi"><b id="kScanners" style="font-size:24px">0</b><span>ماسحات متصلة</span></div>
+   </div>
+   <div class="toolbar">
+    <input class="search" id="search" placeholder="🔍 ابحث بالباركود أو اسم الصنف…">
+    <button class="btn p" id="addRow">➕ صنف يدوي</button>
+    <button class="btn g" id="exportCsv">⬇️ تصدير Excel/CSV</button>
+    <button class="btn s" id="printBtn">🖨️ طباعة</button>
+    <button class="btn s" id="soundBtn">🔔 الصوت: مفعّل</button>
+    <button class="btn d" id="clearBtn">🗑️ تفريغ</button>
+   </div>
+   <div class="tablewrap">
+    <table><thead><tr><th>#</th><th>الباركود</th><th>اسم الصنف</th><th>سعر الوحدة</th><th>الكمية</th><th>الإجمالي</th><th>بواسطة</th><th>آخر مسح</th><th></th></tr></thead><tbody id="tbody"></tbody></table>
+    <div class="empty" id="empty" style="display:none">لا توجد أصناف بعد — افتح الجرد وابدأ المسح 📷</div>
+   </div>
+  </div>
+
+  <div id="tab-users" style="display:none">
+   <div class="frm">
+    <div><label class="lbl">الاسم</label><input id="uName" placeholder="مثال: أحمد"></div>
+    <div><label class="lbl">البريد / اسم الدخول</label><input id="uUser" placeholder="name@mail.com"></div>
+    <div><label class="lbl">كلمة المرور</label><input id="uPass" placeholder="••••••"></div>
+    <div><label class="lbl">الصلاحية</label><select id="uRole"><option value="scanner">ماسح (جرد فقط)</option><option value="viewer">مشاهد (قراءة فقط)</option><option value="admin">مدير نظام</option></select></div>
+    <div><label class="lbl">مركز التكلفة / الفرع</label><select id="uCenter"></select></div>
+    <div><button class="btn p" id="uAdd">➕ إضافة مستخدم</button></div>
+   </div>
+   <div class="tablewrap"><table><thead><tr><th>الاسم</th><th>الدخول</th><th>الصلاحية</th><th>الفرع</th><th>الحالة</th><th>كلمة السر</th><th></th></tr></thead><tbody id="uBody"></tbody></table></div>
+  </div>
+
+  <div id="tab-centers" style="display:none">
+   <div class="frm">
+    <div><label class="lbl">كود المركز</label><input id="cCode" placeholder="BR01"></div>
+    <div><label class="lbl">اسم الفرع / المركز</label><input id="cName" placeholder="فرع مدينة نصر"></div>
+    <div><button class="btn p" id="cAdd">➕ إضافة مركز</button></div>
+   </div>
+   <div class="tablewrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>عدد المستخدمين</th><th>حالة الجرد</th><th></th></tr></thead><tbody id="cBody"></tbody></table></div>
+  </div>
+
+  <div id="tab-log" style="display:none">
+   <div class="tablewrap"><table><thead><tr><th>الوقت</th><th>الحدث</th><th>التفاصيل</th></tr></thead><tbody id="lBody"></tbody></table></div>
+   <div class="hint">سجل بكل عمليات فتح/إغلاق الجرد والدخول والإضافات والحذف.</div>
+  </div>
+ </div>
+</div>
+
+
+<script>
+/* =============================================================
+   نظام جرد البضاعة — نسخة ساب بيس (Supabase)
+   الاتصال المباشر بقاعدة البيانات عبر REST + RPC
+   ============================================================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* ------- إعدادات المشروع (بتتغير من لوحة الإعدادات) ------- */
+const CFG_KEY  = 'inv_sb_cfg_v2';
+const TOK_KEY  = 'inv_sb_tok_v2';
+const ME_KEY   = 'inv_sb_me_v2';
+const QUEUE_KEY= 'inv_sb_queue_v2';
+const POLL_MS  = 4000;
+
+const DEFAULT_CFG = { url: "https://hvsvpifncujgmothsczj.supabase.co", key: "sb_publishable_I1IsK2QO-m58wiA3oRRTmw_QsmqT4oF" };
+let cfg = (()=>{ try{ return JSON.parse(localStorage.getItem(CFG_KEY)||'null') || DEFAULT_CFG; }catch(e){ return DEFAULT_CFG; } })();
+let token = localStorage.getItem(TOK_KEY) || '';
+let refreshTok = '';
+let me = null;
+let centers = [];
+let users = [];
+let inv = {};            // barcode -> item
+let invOrder = [];
+let session = { open:false, by:'', at:0 };
+let activeScan = false;
+let online = true;
+let queue = [];
+let soundOn = true;
+let qty = 1, lastCode = '', lastTime = 0, myCount = 0;
+let scanner = null, scanning = false, camFacing = 'environment', camIdx = 0;
+let pollTimer = null, busy = false;
+let viewCenter = '';
+const scansSeen = {};
+let liveUsers = {};
+
+/* ---------------- أدوات ---------------- */
+function money(n){ n=Number(n)||0; return n.toLocaleString('en-US',{maximumFractionDigits:2}); }
+function ts(t){ return t ? new Date(t).toLocaleString('ar-EG',{hour:'2-digit',minute:'2-digit',second:'2-digit',day:'2-digit',month:'2-digit'}) : '—'; }
+function timeOnly(t){ return t ? new Date(t).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : ''; }
+
+function beep(ok){
+  if(!soundOn) return;
+  try{
+    const A = window.AudioContext || window.webkitAudioContext;
+    const a = new A(); const o = a.createOscillator(); const g = a.createGain();
+    o.connect(g); g.connect(a.destination);
+    o.frequency.value = ok ? 1180 : 340;
+    o.type = ok ? 'sine' : 'square';
+    g.gain.setValueAtTime(0.12, a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + (ok?0.12:0.3));
+    o.start(); o.stop(a.currentTime + (ok?0.13:0.32));
+    if(navigator.vibrate) navigator.vibrate(ok?40:[60,40,60]);
+  }catch(e){}
+}
+
+/* ---------------- طبقة الاتصال بساب بيس ---------------- */
+function sbHeaders(extra){
+  const h = { 'apikey': cfg.key, 'Content-Type': 'application/json' };
+  if(token) h['Authorization'] = 'Bearer ' + token;
+  else h['Authorization'] = 'Bearer ' + cfg.key;
+  return Object.assign(h, extra||{});
+}
+
+async function sbFetch(path, opt){
+  opt = opt || {};
+  const res = await fetch(cfg.url.replace(/\/$/,'') + path, Object.assign({}, opt, { headers: sbHeaders(opt.headers) }));
+  const txt = await res.text();
+  let data = null;
+  try{ data = txt ? JSON.parse(txt) : null; }catch(e){ data = { raw: txt }; }
+  if(!res.ok){
+    const msg = (data && (data.message || data.msg || data.error_description || data.error_code)) || ('HTTP ' + res.status);
+    const err = new Error(msg);
+    err.status = res.status;
+    err.body = data;
+    throw err;
+  }
+  return data;
+}
+
+async function rpc(fn, args){
+  return sbFetch('/rest/v1/rpc/' + fn, { method:'POST', body: JSON.stringify(args||{}) });
+}
+
+/* ---------------- تسجيل الدخول (Supabase Auth) ---------------- */
+async function authLogin(username, password){
+  const email = String(username).includes('@') ? String(username).trim().toLowerCase()
+                                                : String(username).trim().toLowerCase() + '@inventory.local';
+  const r = await sbFetch('/auth/v1/token?grant_type=password', {
+    method:'POST',
+    body: JSON.stringify({ email: email, password: password })
+  });
+  token = r.access_token;
+  refreshTok = r.refresh_token;
+  localStorage.setItem(TOK_KEY, token);
+  return r;
+}
+
+async function authRefresh(){
+  if(!refreshTok) return false;
+  try{
+    const r = await sbFetch('/auth/v1/token?grant_type=refresh_token', {
+      method:'POST', body: JSON.stringify({ refresh_token: refreshTok })
+    });
+    token = r.access_token; refreshTok = r.refresh_token;
+    localStorage.setItem(TOK_KEY, token);
+    return true;
+  }catch(e){ return false; }
+}
+
+async function loadMe(){
+  await authUid();
+  const row = await rpc('my_profile', {});
+  if(!row) throw new Error('no_profile');
+  me = row;
+  localStorage.setItem(ME_KEY, JSON.stringify(me));
+  return me;
+}
+
+async function authUid(){
+  const r = await sbFetch('/auth/v1/user');
+  return r.id;
+}
+
+function doLogout(){
+  token=''; refreshTok='';
+  localStorage.removeItem(TOK_KEY); localStorage.removeItem(ME_KEY);
+  location.reload();
+}
+
+/* ---------------- حالة الأسطر ---------------- */
+function setOnline(v){
+  online = v;
+  const el = $('#status');
+  if(!el) return;
+  el.className = 'status ' + (v ? 'online' : 'offline');
+  el.textContent = v ? 'متصل بالسحابة' : 'غير متصل';
+  const ob = $('#offBar'); if(ob) ob.classList.toggle('on', !v);
+}
+
+/* ---------------- شاشات ---------------- */
+function showView(v){
+  ['waitView','scannerView','adminView'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.style.display = (id===v) ? '' : 'none';
+  });
+}
+
+function lockout(title, msg){
+  $('#lockTitle').textContent = title || 'تم إغلاق الجرد';
+  $('#lockMsg').textContent = msg || 'تم إغلاق الجرد بواسطة المدير';
+  $('#lockout').style.display = 'flex';
+  stopScan();
+}
+
+function roleLabel(r){ return r==='admin' ? 'مدير نظام' : (r==='viewer' ? 'مشاهدة فقط' : 'ماسح جرد'); }
+
+function currentItems(){
+  const q = (($('#search') && $('#search').value) || '').trim().toLowerCase();
+  let list = invOrder.map(b => inv[b]).filter(Boolean);
+  if(q) list = list.filter(it => String(it.barcode).toLowerCase().includes(q) || String(it.name||'').toLowerCase().includes(q));
+  return list;
+}
+
+/* ---------------- الماسح ---------------- */
+function renderPushHint(){ /* غير مستخدم في نسخة ساب بيس */ }
+
+async function startScan(){
+  const err = $('#camErr');
+  if(err) err.style.display = 'none';
+  if(typeof Html5Qrcode === 'undefined'){
+    if(err){ err.style.display='block'; err.textContent = 'مكتبة قارئ الباركود لم تُحمَّل. اتأكد من الإنترنت وجرّب تحديث الصفحة.'; }
+    return;
+  }
+  try{
+    if(!scanner) scanner = new Html5Qrcode('reader');
+    scanning = true;
+    await scanner.start({ facingMode: camFacing }, { fps: 12, qrbox: { width: 260, height: 160 }, aspectRatio: 1.4 },
+      (txt) => onScan(txt, 'camera'),
+      () => {}
+    );
+    $('#startBtn').style.display = 'none';
+    $('#switchCam').style.display = 'inline-block';
+  }catch(e){
+    scanning = false;
+    if(err){
+      err.style.display = 'block';
+      err.innerHTML = '<b>مش قادر أشغّل الكاميرا.</b><br>' +
+        '• لازم الصفحة تفتح بـ <b>https</b> (آمنة).<br>' +
+        '• لو على أندرويد: اقفل "فقاعات الدردشة" وأي تطبيق بيعمل طبقة فوق الشاشة، ثم أعد المحاولة.<br>' +
+        '• اسمح للمتصفح باستخدام الكاميرا.<br>' +
+        '• أو استخدم خانة <b>الإدخال اليدوي</b> تحت.<br><br><small>' + esc(String(e && e.message || e)) + '</small>';
+    }
+  }
+}
+
+function stopScan(){
+  scanning = false;
+  try{ if(scanner) scanner.stop().then(()=>{ try{scanner.clear();}catch(e){} }).catch(()=>{}); }catch(e){}
+  const sb = $('#startBtn'); if(sb) sb.style.display = 'block';
+}
+
+async function switchCamera(){
+  camFacing = camFacing === 'environment' ? 'user' : 'environment';
+  try{ if(scanner){ await scanner.stop(); try{scanner.clear();}catch(e){} } }catch(e){}
+  scanner = null; scanning = false;
+  await startScan();
+}
+
+async function onScan(code, fmt){
+  if(!me) return;
+  code = String(code||'').trim();
+  if(!code) return;
+  const now = Date.now();
+  if(code === lastCode && now - lastTime < 1200) return;   // منع التكرار السريع
+  lastCode = code; lastTime = now;
+
+  $('#lastCode').textContent = code;
+  $('#lastName').textContent = '';
+
+  if(!session.open && me.role !== 'admin'){ lockout('تم إغلاق الجرد','تم إغلاق الجرد بواسطة المدير'); return; }
+
+  const q = qty;
+  queue.push({ barcode: code, qty: q });
+  saveQueue();
+  await flushQueue();
+}
+
+function saveQueue(){ try{ localStorage.setItem(QUEUE_KEY, JSON.stringify(queue)); }catch(e){} }
+
+async function flushQueue(){
+  if(busy || !queue.length || !me) return;
+  busy = true;
+  const batch = queue.slice();
+  try{
+    const n = await rpc('scan_batch', { p_center: me.center, p_codes: batch });
+    queue = queue.slice(batch.length);
+    saveQueue();
+    myCount += batch.length;
+    beep(true);
+    if($('#tMine')) $('#tMine').textContent = myCount;
+    const nm = (inv[batch[0].barcode] && inv[batch[0].barcode].name) || '';
+    if($('#lastName')) $('#lastName').textContent = nm;
+    setOnline(true);
+    await reloadItems();
+  }catch(e){
+    const m = String(e.message||'');
+    if(m.indexOf('closed') >= 0){ lockout('تم إغلاق الجرد','تم إغلاق الجرد بواسطة المدير'); queue = []; saveQueue(); }
+    else if(m.indexOf('unauthorized') >= 0 || e.status === 401){ doLogout(); }
+    else { beep(false); setOnline(false); }
+  }
+  busy = false;
+}
+
+/* ---------------- تحميل البيانات ---------------- */
+async function reloadItems(){
+  const c = (me.role === 'admin') ? viewCenter : me.center;
+  if(!c) return;
+  const rows = await rpc('list_items', { p_center: c });
+  inv = {}; invOrder = [];
+  (rows||[]).forEach(it=>{ inv[it.barcode] = it; invOrder.push(it.barcode); });
+  const st = await rpc('center_state', { p_center: c });
+  session = { open: !!(st && st.open), by: (st && st.by) || '', at: (st && st.at) || 0, items: (st&&st.items)||0, units: (st&&st.units)||0, value: (st&&st.value)||0 };
+  renderStock();
+  renderSessionBar();
+  return st;
+}
+
+function renderStock(){
+  const tb = $('#tbody'); if(!tb) return;
+  const list = currentItems();
+  const canEdit = me && (me.role === 'admin' || (session.open && me.role === 'scanner'));
+  let tot = 0;
+  tb.innerHTML = list.map((it,i)=>{
+    const line = (Number(it.qty)||0) * (Number(it.price)||0);
+    tot += line;
+    return '<tr class="flash">' +
+      '<td>' + (i+1) + '</td>' +
+      '<td class="code">' + esc(it.barcode) + '</td>' +
+      '<td><input value="' + esc(it.name || '') + '" data-f="name" data-b="' + esc(it.barcode) + '" ' + (canEdit?'':'readonly') + '></td>' +
+      '<td><input value="' + (Number(it.price)||0) + '" data-f="price" data-b="' + esc(it.barcode) + '" type="number" step="0.01" ' + (canEdit?'':'readonly') + '></td>' +
+      '<td><div class="qc"><button data-dec="' + esc(it.barcode) + '">−</button><span class="v">' + (Number(it.qty)||0) + '</span><button data-inc="' + esc(it.barcode) + '">+</button></div></td>' +
+      '<td>' + money(line) + '</td>' +
+      '<td style="font-size:12px;color:#64748b">' + esc(it.by_name || it.by_user || '') + '</td>' +
+      '<td style="font-size:12px;color:#64748b">' + ts(it.last) + '</td>' +
+      '<td>' + (canEdit ? '<button class="del" data-del="' + esc(it.barcode) + '">🗑</button>' : '') + '</td></tr>';
+  }).join('') || '<tr><td colspan="9" class="empty">لا توجد أصناف بعد — افتح الجرد وابدأ المسح 📷</td></tr>';
+
+  if($('#empty')) $('#empty').style.display = list.length ? 'none' : 'block';
+  const units = list.reduce((s,it)=>s+(Number(it.qty)||0),0);
+  if($('#kUnits')) $('#kUnits').textContent = money(units);
+  if($('#kSkus'))  $('#kSkus').textContent = list.length;
+  if($('#kValue')) $('#kValue').textContent = money(tot);
+  if($('#kScanners')) $('#kScanners').textContent = Object.keys(liveUsers).filter(k=>Date.now()-liveUsers[k]<30000).length;
+  if($('#tUnits')) $('#tUnits').textContent = money(units);
+  if($('#tSkus'))  $('#tSkus').textContent = list.length;
+  if($('#recentCount')) $('#recentCount').textContent = list.length;
+
+  if($('#recent')){
+    $('#recent').innerHTML = list.slice(0,15).map(it=>'<div class="item"><div><div class="c">'+esc(it.barcode)+'</div><div class="t">'+esc(it.name||'—')+' × '+(Number(it.qty)||0)+'</div></div><span class="badge">'+timeOnly(it.last)+'</span></div>').join('') || '<div class="hint">لسه ممسحتش حاجة</div>';
+  }
+
+  tb.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>adjust(b.getAttribute('data-inc'), +1));
+  tb.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>adjust(b.getAttribute('data-dec'), -1));
+  tb.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+    const code=b.getAttribute('data-del');
+    if(!confirm('تحذف الصنف ' + code + '؟')) return;
+    try{ await rpc('del_item',{p_center:(viewCenter||me.center),p_barcode:code}); await reloadItems(); }catch(e){ alert('فشل الحذف'); }
+  });
+  tb.querySelectorAll('input[data-f]').forEach(inp=>{
+    inp.onchange=async()=>{
+      const code=inp.getAttribute('data-b'), f=inp.getAttribute('data-f');
+      const it=inv[code]; if(!it) return;
+      const args={ p_center:(viewCenter||me.center), p_barcode:code, p_name:null, p_price:null, p_qty:null };
+      if(f==='name') args.p_name = inp.value;
+      if(f==='price') args.p_price = Number(inp.value)||0;
+      try{ await rpc('set_item', args); await reloadItems(); }
+      catch(e){ alert('مش قادر أعدّل الصنف'); }
+    };
+  });
+}
+
+async function adjust(code, delta){
+  const it = inv[code]; if(!it) return;
+  const nq = Math.max(0, (Number(it.qty)||0) + delta);
+  try{
+    await rpc('set_item', { p_center:(viewCenter||me.center), p_barcode:code, p_name:null, p_price:null, p_qty:nq });
+    await reloadItems();
+  }catch(e){ alert('مش قادر أعدّل الكمية'); }
+}
+
+function renderSessionBar(){
+  const pill=$('#sessPill');
+  if(pill){ pill.className='sess-pill '+(session.open?'open':'closed'); pill.textContent = session.open?'مفتوح':'مغلق'; }
+  if($('#sessInfo')) $('#sessInfo').textContent = session.open ? ('فتحه ' + (session.by||'—') + ' • ' + ts(session.at)) : '';
+  if($('#openBtn'))  $('#openBtn').style.display  = session.open?'none':'';
+  if($('#closeBtn')) $('#closeBtn').style.display = session.open?'':'none';
+  if($('#sessCenter')){
+    const sel=$('#sessCenter');
+    if(sel.options.length !== centers.length || !sel.value){
+      sel.innerHTML = centers.map(c=>'<option value="'+esc(c.code)+'">'+esc(c.name)+' ('+esc(c.code)+')</option>').join('');
+      sel.value = viewCenter || (me ? me.center : '');
+    }
+  }
+}
+
+function changeCenterView(){
+  const sel=$('#sessCenter');
+  viewCenter = sel.value;
+  renderSessionBar();
+  reloadItems().then(()=>{ renderSessionBar(); }).catch(()=>{});
+}
+
+async function openSession(){
+  const code = $('#sessCenter').value;
+  try{
+    await rpc('set_session', { p_center: code, p_open: true });
+    await reloadItems();
+    renderCenters();
+  }catch(e){
+    const m=String(e.message||'');
+    alert(m.indexOf('forbidden')>=0 ? 'الصلاحية دي للمدير بس' : 'مش قادر أفتح الجرد — جرّب تاني');
+  }
+}
+
+async function closeSession(){
+  const code = $('#sessCenter').value;
+  try{
+    await rpc('set_session', { p_center: code, p_open: false });
+    await reloadItems();
+    renderCenters();
+  }catch(e){ alert('مش قادر أغلق الجرد — جرّب تاني'); }
+}
+
+/* ---------------- المستخدمون ---------------- */
+function renderCenterOptions(){
+  const sel=$('#uCenter'); if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML = centers.map(c=>'<option value="'+esc(c.code)+'"'+(c.code===cur?' selected':'')+'>'+esc(c.name)+' ('+esc(c.code)+')</option>').join('');
+}
+
+async function loadUsers(){
+  const rows = await rpc('list_users', {});
+  users = rows || [];
+  renderUsers();
+}
+
+async function loadCenters(){
+  const rows = await rpc('list_centers', {});
+  centers = rows || [];
+  renderCenters();
+}
+
+function renderUsers(){
+  const b=$('#uBody'); if(!b) return;
+  b.innerHTML = users.map(u=>{
+    const on = liveUsers[u.username] && Date.now()-liveUsers[u.username] < 30000;
+    const c = (centers.find(x=>x.code===u.center)||{}).name || u.center;
+    return '<tr>'+
+      '<td>'+esc(u.name)+'</td>'+
+      '<td class="code" style="font-size:12px">'+esc(u.username)+'</td>'+
+      '<td>'+roleLabel(u.role)+'</td>'+
+      '<td>'+esc(c)+'</td>'+
+      '<td>'+(on?'<span style="color:#16a34a;font-weight:700">● متصل</span>':'<span style="color:#94a3b8">غير متصل</span>')+(u.active?'':' <span class="badge" style="background:#fee2e2;color:#991b1b">موقوف</span>')+'</td>'+
+      '<td style="font-size:12px;color:#64748b">••••••</td>'+
+      '<td style="white-space:nowrap">'+
+        '<button class="btn s" data-tog="'+esc(u.username)+'" style="padding:6px 9px;font-size:12px">'+(u.active?'إيقاف':'تشغيل')+'</button> '+
+        '<button class="btn s" data-pwd="'+esc(u.username)+'" style="padding:6px 9px;font-size:12px">كلمة سر</button> '+
+        '<button class="btn d" data-usr-del="'+esc(u.username)+'" style="padding:6px 9px;font-size:12px">🗑</button>'+
+      '</td></tr>';
+  }).join('') || '<tr><td colspan="7" class="empty">لا يوجد مستخدمون</td></tr>';
+
+  b.querySelectorAll('[data-tog]').forEach(btn=>btn.onclick=async()=>{
+    const usr=btn.getAttribute('data-tog');
+    const u=users.find(x=>x.username===usr); if(!u) return;
+    try{ await rpc('update_user',{ p_username:usr, p_name:null, p_role:null, p_center:null, p_active:!u.active }); await loadUsers(); }
+    catch(e){ alert(String(e.message||'').indexOf('cannot_disable_self')>=0 ? 'مش ممكن توقف حسابك انت' : 'فشل التعديل'); }
+  });
+
+  b.querySelectorAll('[data-pwd]').forEach(btn=>btn.onclick=async()=>{
+    const usr=btn.getAttribute('data-pwd');
+    const u=users.find(x=>x.username===usr); if(!u) return;
+    const p=prompt('كلمة سر جديدة لـ '+u.name+':');
+    if(!p) return;
+    if(p.length<6){ alert('كلمة السر ٦ حروف على الأقل'); return; }
+    try{ await rpc('set_password',{ p_username:usr, p_password:p }); alert('تم تغيير كلمة السر ✅'); }
+    catch(e){ alert('فشل التغيير'); }
+  });
+
+  b.querySelectorAll('[data-usr-del]').forEach(btn=>btn.onclick=async()=>{
+    const usr=btn.getAttribute('data-usr-del');
+    if(!confirm('تحذف المستخدم '+usr+'؟')) return;
+    try{ await rpc('delete_user',{ p_username:usr }); await loadUsers(); await loadCenters(); }
+    catch(e){ alert(String(e.message||'').indexOf('cannot_delete_self')>=0 ? 'مش ممكن تحذف حسابك انت' : 'فشل الحذف'); }
+  });
+}
+
+async function addUser(){
+  const name = ($('#uName').value||'').trim();
+  const user = ($('#uUser').value||'').trim().toLowerCase();
+  const pass = ($('#uPass').value||'').trim();
+  const role = $('#uRole').value;
+  const center = $('#uCenter').value;
+  if(!name || !user || !pass){ alert('اكمل الاسم وبيانات الدخول وكلمة المرور'); return; }
+  if(pass.length < 6){ alert('كلمة المرور ٦ حروف على الأقل'); return; }
+  if(/\s/.test(user)){ alert('اسم الدخول من غير مسافات'); return; }
+  try{
+    await rpc('create_user', { p_username:user, p_password:pass, p_name:name, p_role:role, p_center:center });
+    $('#uName').value=''; $('#uUser').value=''; $('#uPass').value='';
+    await loadUsers(); await loadCenters();
+  }catch(e){
+    const m=String(e.message||'');
+    if(m.indexOf('user_exists')>=0) alert('اسم الدخول ده مستخدم بالفعل');
+    else if(m.indexOf('forbidden')>=0) alert('الصلاحية دي للمدير بس');
+    else alert('فشل إضافة المستخدم: ' + m);
+  }
+}
+
+/* ---------------- المراكز ---------------- */
+function renderCenters(){
+  const b=$('#cBody'); if(!b) return;
+  b.innerHTML = centers.map(c=>{
+    const n = users.filter(u=>u.center===c.code).length;
+    const isOpen = (c.code===viewCenter) ? session.open : !!c.open;
+    return '<tr>'+
+      '<td class="code">'+esc(c.code)+'</td>'+
+      '<td>'+esc(c.name)+'</td>'+
+      '<td>'+n+'</td>'+
+      '<td>'+(isOpen?'<span class="sess-pill open">مفتوح</span>':'<span class="sess-pill closed">مغلق</span>')+'</td>'+
+      '<td><button class="btn d" data-c-del="'+esc(c.code)+'" style="padding:6px 9px;font-size:12px">🗑</button></td></tr>';
+  }).join('') || '<tr><td colspan="5" class="empty">لا توجد مراكز</td></tr>';
+
+  b.querySelectorAll('[data-c-del]').forEach(btn=>btn.onclick=async()=>{
+    const code=btn.getAttribute('data-c-del');
+    if(users.some(u=>u.center===code)){ alert('فيه مستخدمين مرتبطين بالمركز ده — انقلهم الأول'); return; }
+    if(!confirm('تحذف المركز '+code+'؟')) return;
+    try{ await rpc('del_center', { p_code: code }); await loadCenters(); }
+    catch(e){ alert('فشل الحذف'); }
+  });
+  renderCenterOptions();
+}
+
+async function addCenter(){
+  const code = ($('#cCode').value||'').trim().toUpperCase();
+  const name = ($('#cName').value||'').trim();
+  if(!code || !name){ alert('اكتب كود المركز واسمه'); return; }
+  if(centers.some(c=>c.code===code)){ alert('الكود مستخدم بالفعل'); return; }
+  try{
+    await rpc('add_center', { p_code: code, p_name: name });
+    $('#cCode').value=''; $('#cName').value='';
+    await loadCenters();
+  }catch(e){ alert('فشل إضافة المركز'); }
+}
+
+/* ---------------- السجل ---------------- */
+async function loadLog(){
+  try{
+    const rows = await rpc('list_log', { p_limit: 200 });
+    const b=$('#lBody'); if(!b) return;
+    b.innerHTML = (rows||[]).map(l=>'<tr><td style="font-size:12px;color:#64748b;white-space:nowrap">'+ts(l.ts)+'</td><td>'+esc(l.ev)+'</td><td style="font-size:13px">'+esc(l.det)+' <span class="tag">'+esc(l.by_name||l.by_user||'')+'</span></td></tr>').join('') || '<tr><td colspan="3" class="empty">لا يوجد سجل</td></tr>';
+  }catch(e){}
+}
+
+/* ---------------- التحديث الدوري ---------------- */
+async function tick(){
+  if(!me) return;
+  try{
+    if(me.role === 'admin'){
+      await reloadItems();
+      if(document.querySelector('#tab-users') && $('#tab-users').style.display !== 'none') await loadUsers();
+      if(document.querySelector('#tab-centers') && $('#tab-centers').style.display !== 'none') await loadCenters();
+    }else{
+      const st = await rpc('center_state', { p_center: me.center });
+      const wasOpen = session.open;
+      session = { open: !!(st && st.open), by:(st&&st.by)||'', at:(st&&st.at)||0 };
+      if(!session.open && me.role !== 'admin'){
+        if(wasOpen) lockout('تم إغلاق الجرد','تم إغلاق الجرد بواسطة المدير');
+        else { showView('waitView'); }
+        return;
+      }
+      if($('#lockout').style.display === 'flex') $('#lockout').style.display = 'none';
+      showView('scannerView');
+      await reloadItems();
+      liveUsers[me.username] = Date.now();
+    }
+    setOnline(true);
+  }catch(e){
+    if(e.status === 401){ if(await authRefresh()) return; doLogout(); }
+    setOnline(false);
+  }
+  if(queue.length) flushQueue();
+}
+
+function startPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(tick, POLL_MS);
+}
+
+/* ---------------- الشاشة الرئيسية ---------------- */
+async function enterApp(){
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('hdUser').style.display = '';
+  document.getElementById('hdUser').innerHTML = '👤 <b>' + esc(me.name) + '</b> — ' + roleLabel(me.role);
+  document.getElementById('hdBranch').style.display = '';
+  document.getElementById('hdBranch').innerHTML = '🏬 <b>' + esc((centers.find(c=>c.code===me.center)||{}).name || me.center) + '</b>';
+
+  if(me.role === 'admin'){
+    viewCenter = me.center;
+    document.getElementById('toggleBtn').style.display = '';
+    showView('adminView');
+    await loadCenters();
+    await loadUsers();
+    await reloadItems();
+    loadLog();
+  }else{
+    showView('waitView');
+    await tick();
+  }
+  startPolling();
+}
+
+/* ---------------- الأحداث ---------------- */
+function bind(){
+  $('#saveApi').onclick = saveCfg;
+  $('#lgBtn').onclick = doLogin;
+  $('#lgPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+  $('#lgUser').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+  $('#logoutBtn').onclick = doLogout;
+  $('#lockBack').onclick = ()=>{ doLogout(); };
+  $('#toggleBtn').onclick = switchView;
+  $('#startBtn').onclick = startScan;
+  $('#switchCam').onclick = switchCamera;
+
+  const qm=$('#qMinus'), qp=$('#qPlus'), qv=$('#qVal');
+  if(qm) qm.onclick = ()=>{ qty=Math.max(1,qty-1); qv.textContent=qty; };
+  if(qp) qp.onclick = ()=>{ qty=Math.min(9999,qty+1); qv.textContent=qty; };
+
+  const ma=$('#manualAdd'), mi=$('#manual');
+  if(ma) ma.onclick = ()=>{ const v=(mi.value||'').trim(); if(!v) return; onScan(v,'manual'); mi.value=''; mi.focus(); };
+  if(mi) mi.addEventListener('keydown', e=>{ if(e.key==='Enter') ma.click(); });
+
+  document.querySelectorAll('.seg button').forEach(btn=>{
+    btn.onclick = async () => {
+      document.querySelectorAll('.seg button').forEach(x=>x.classList.remove('active'));
+      btn.classList.add('active');
+      const t = btn.getAttribute('data-tab');
+      ['stock','users','centers','log'].forEach(x=>{ const el=document.getElementById('tab-'+x); if(el) el.style.display=(x===t)?'block':'none'; });
+      if(t==='users'){ renderCenterOptions(); await loadUsers(); }
+      if(t==='centers'){ await loadCenters(); await loadUsers(); }
+      if(t==='log') loadLog();
+      if(t==='stock'){ renderSessionBar(); renderStock(); }
+    };
+  });
+
+  const sc=$('#sessCenter'), ob=$('#openBtn'), cb=$('#closeBtn');
+  if(sc) sc.onchange = changeCenterView;
+  if(ob) ob.onclick = openSession;
+  if(cb) cb.onclick = closeSession;
+
+  const sr=$('#search'); if(sr) sr.oninput = ()=>renderStock();
+
+  const ar=$('#addRow');
+  if(ar) ar.onclick = async ()=>{
+    const code = prompt('اكتب الباركود للصنف الجديد:');
+    if(!code) return;
+    try{ await rpc('scan_batch', { p_center:(viewCenter||me.center), p_codes:[{barcode:code, qty:1}] }); await reloadItems(); }
+    catch(e){ alert('مش قادر أضيف الصنف'); }
+  };
+
+  const ec=$('#exportCsv'); if(ec) ec.onclick = exportCsv;
+  const pb=$('#printBtn'); if(pb) pb.onclick = ()=>window.print();
+  const sb=$('#soundBtn');
+  if(sb) sb.onclick = ()=>{ soundOn=!soundOn; sb.textContent='🔔 الصوت: '+(soundOn?'مفعّل':'مقفول'); };
+
+  const clr=$('#clearBtn');
+  if(clr) clr.onclick = async ()=>{
+    if(!confirm('هتفضي كل أصناف جرد المركز '+(viewCenter||me.center)+' من السحابة. متأكد؟')) return;
+    try{ await rpc('clear_items', { p_center:(viewCenter||me.center) }); await reloadItems(); }
+    catch(e){ alert('فشل التفريغ'); }
+  };
+
+  const ua=$('#uAdd'); if(ua) ua.onclick = addUser;
+  const ca=$('#cAdd'); if(ca) ca.onclick = addCenter;
+
+  window.addEventListener('online', ()=>{ setOnline(true); tick(); });
+  window.addEventListener('offline', ()=>setOnline(false));
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ tick(); } });
+}
+
+function switchView(){
+  if(me.role !== 'admin') return;
+  if(me.role === 'admin' && currentView === 'admin'){
+    showView('scannerView'); currentView='scanner';
+    $('#toggleBtn').textContent='📊 اللوحة';
+  }else{
+    showView('adminView'); currentView='admin';
+    $('#toggleBtn').textContent='📷 المسح';
+  }
+}
+let currentView = 'admin';
+
+function exportCsv(){
+  const rows = [['#','الباركود','اسم الصنف','سعر الوحدة','الكمية','الإجمالي','بواسطة','آخر مسح']];
+  let i=1, tot=0;
+  currentItems().forEach(it=>{
+    const line=(Number(it.qty)||0)*(Number(it.price)||0); tot+=line;
+    rows.push([i++, it.barcode, it.name||'', Number(it.price)||0, Number(it.qty)||0, line, it.by_name||it.by_user||'', it.last?new Date(it.last).toLocaleString('en-GB'):'']);
+  });
+  rows.push(['','','الإجمالي','','','','',tot]);
+  const csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='جرد_'+(viewCenter||me.center)+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+/* ---------------- الدخول / الإعدادات ---------------- */
+async function doLogin(){
+  const u = ($('#lgUser').value||'').trim();
+  const p = ($('#lgPass').value||'').trim();
+  const errEl = $('#lgErr');
+  errEl.textContent = '';
+  if(!u || !p){ errEl.textContent = 'اكتب اسم المستخدم وكلمة المرور'; return; }
+  errEl.textContent = 'جارِ الدخول…';
+  try{
+    await authLogin(u, p);
+    await authUid();
+    await loadMe();
+    if(!me.active) throw new Error('account_disabled');
+    errEl.textContent = '';
+    await enterApp();
+  }catch(e){
+    const m = String(e.message||'');
+    if(m.indexOf('Invalid login credentials')>=0 || m.indexOf('invalid_grant')>=0) errEl.textContent = 'اسم الدخول أو كلمة المرور غير صحيحة';
+    else if(m.indexOf('Email not confirmed')>=0) errEl.textContent = 'الحساب مش مفعّل — كلّم المدير';
+    else if(m === 'account_disabled') errEl.textContent = 'حسابك موقوف — كلّم المدير';
+    else if(m === 'no_profile') errEl.textContent = 'الحساب مش مربوط بالنظام — كلّم المدير';
+    else errEl.textContent = 'مش قادر أدخل: ' + m;
+  }
+}
+
+function saveCfg(){
+  const u = ($('#apiUrl').value||'').trim().replace(/\/$/,'');
+  const k = ($('#sbKey') && $('#sbKey').value || '').trim();
+  if(!u || !k){ $('#apiErr').textContent = 'لازم الرابط والمفتاح'; return; }
+  cfg = { url:u, key:k };
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  location.reload();
+}
+
+function showSetup(msg){
+  $('#setupBox').style.display = 'flex';
+  $('#apiErr').textContent = msg || '';
+  if(cfg.url) $('#apiUrl').value = cfg.url;
+}
+
+/* ---------------- تشغيل ---------------- */
+(async function boot(){
+  renderPushHint();
+  bind();
+  setOnline(true);
+
+  if(!cfg.url || !cfg.key || String(cfg.url).indexOf('__SB')===0){ showSetup(''); return; }
+
+  if(!token){ $('#login').style.display='flex'; return; }
+  try{
+    await authUid();
+    await loadMe();
+    await enterApp();
+  }catch(e){
+    const ok = await authRefresh();
+    if(ok){ try{ await authUid(); await loadMe(); await enterApp(); return; }catch(e2){} }
+    token=''; localStorage.removeItem(TOK_KEY); localStorage.removeItem(ME_KEY);
+    $('#login').style.display='flex';
+  }
+})();
+</script>
+</body>
