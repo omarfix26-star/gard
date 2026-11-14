@@ -1,0 +1,2894 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>نظام الجرد الذكي — Smart Inventory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>
+:root{
+  --bg0:#060a14; --bg1:#0b1220; --bg2:#101a2e;
+  --glass:rgba(255,255,255,.075); --glass2:rgba(255,255,255,.045);
+  --stroke:rgba(255,255,255,.14); --stroke2:rgba(255,255,255,.08);
+  --txt:#eef2f9; --muted:#9aa8c2;
+  --acc:#38bdf8; --acc2:#818cf8; --ok:#34d399; --warn:#fbbf24; --bad:#f87171; --pink:#f472b6;
+  --r:20px; --r2:14px;
+  --sh:0 18px 50px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;min-height:100%}
+body{
+  font-family:'Cairo',system-ui,-apple-system,Segoe UI,sans-serif;
+  color:var(--txt); background:var(--bg0);
+  overflow-x:hidden; -webkit-font-smoothing:antialiased;
+}
+/* ===== خلفية زجاجية متحركة ===== */
+body::before,body::after{content:'';position:fixed;border-radius:50%;filter:blur(70px);z-index:-2;pointer-events:none}
+body::before{width:60vmax;height:60vmax;background:radial-gradient(circle at 30% 30%,rgba(56,189,248,.30),transparent 60%);top:-20vmax;right:-15vmax;animation:float1 18s ease-in-out infinite}
+body::after{width:55vmax;height:55vmax;background:radial-gradient(circle at 70% 70%,rgba(129,140,248,.26),transparent 60%);bottom:-20vmax;left:-15vmax;animation:float2 22s ease-in-out infinite}
+#mesh{position:fixed;inset:0;z-index:-3;pointer-events:none;
+ background:
+  radial-gradient(1200px 600px at 80% -10%, rgba(56,189,248,.10), transparent 60%),
+  radial-gradient(900px 500px at 10% 110%, rgba(244,114,182,.08), transparent 60%),
+  linear-gradient(180deg,#060a14,#080e1a 40%,#060a14);
+}
+@keyframes float1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-6vmax,6vmax) scale(1.15)}}
+@keyframes float2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(5vmax,-5vmax) scale(1.12)}}
+
+/* ===== عناصر عامة ===== */
+.glass{background:var(--glass);border:1px solid var(--stroke);border-radius:var(--r);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);box-shadow:var(--sh), inset 0 1px 0 rgba(255,255,255,.10)}
+.glass.soft{background:var(--glass2);box-shadow:0 10px 28px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.07)}
+h1,h2,h3,h4{margin:0;font-weight:800;letter-spacing:-.2px}
+p{margin:0}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;font-weight:700}
+input,select,textarea{font-family:inherit;font-size:15px;color:var(--txt);background:rgba(255,255,255,.06);border:1px solid var(--stroke2);border-radius:12px;padding:12px 14px;width:100%;outline:none;transition:.2s}
+input:focus,select:focus,textarea:focus{border-color:rgba(56,189,248,.6);background:rgba(56,189,248,.07);box-shadow:0 0 0 4px rgba(56,189,248,.10)}
+input::placeholder{color:#6f7f9a}
+select option{background:#0e1728;color:#eef2f9}
+label{display:block;font-size:12.5px;color:var(--muted);margin:0 0 6px 4px;font-weight:700}
+.hide{display:none !important}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.spread{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.muted{color:var(--muted)}
+.small{font-size:12.5px}
+.tiny{font-size:11.5px}
+.center{text-align:center}
+
+/* أزرار */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:13px;font-size:14.5px;border:1px solid var(--stroke);background:rgba(255,255,255,.07);transition:.18s;white-space:nowrap;line-height:1}
+.btn:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
+.btn:active{transform:translateY(0) scale(.985)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn.primary{background:linear-gradient(135deg,#38bdf8,#6366f1);border-color:transparent;color:#04121f;box-shadow:0 10px 26px rgba(56,189,248,.30)}
+.btn.primary:hover{box-shadow:0 14px 34px rgba(56,189,248,.45)}
+.btn.good{background:linear-gradient(135deg,#34d399,#10b981);border-color:transparent;color:#03231a;box-shadow:0 10px 24px rgba(52,211,153,.28)}
+.btn.bad{background:linear-gradient(135deg,#f87171,#ef4444);border-color:transparent;color:#fff;box-shadow:0 10px 24px rgba(248,113,113,.25)}
+.btn.warn{background:linear-gradient(135deg,#fbbf24,#f59e0b);border-color:transparent;color:#2b1a00}
+.btn.ghost{background:transparent}
+.btn.sm{padding:8px 12px;font-size:12.5px;border-radius:10px}
+.btn.block{width:100%}
+.btn.icon{padding:9px;width:38px;height:38px;border-radius:11px}
+
+/* شارات */
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:700;border:1px solid var(--stroke2);background:rgba(255,255,255,.06)}
+.chip.ok{color:#a7f3d0;border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.12)}
+.chip.bad{color:#fecaca;border-color:rgba(248,113,113,.35);background:rgba(248,113,113,.12)}
+.chip.warn{color:#fde68a;border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.12)}
+.chip.acc{color:#bae6fd;border-color:rgba(56,189,248,.35);background:rgba(56,189,248,.12)}
+.chip.vio{color:#ddd6fe;border-color:rgba(129,140,248,.35);background:rgba(129,140,248,.14)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px rgba(52,211,153,.18)}
+.dot.off{background:#64748b;box-shadow:none}
+
+/* ===== شاشة الدخول ===== */
+#login{position:fixed;inset:0;display:grid;place-items:center;padding:18px;z-index:60;overflow:auto}
+.login-card{width:100%;max-width:420px;padding:30px 26px 24px;border-radius:26px;animation:pop .45s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes pop{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+.logo{width:64px;height:64px;border-radius:20px;display:grid;place-items:center;font-size:30px;background:linear-gradient(135deg,rgba(56,189,248,.28),rgba(129,140,248,.28));border:1px solid var(--stroke);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 12px 30px rgba(56,189,248,.18);margin:0 auto 14px}
+.brand-title{font-size:21px;text-align:center;font-weight:900}
+.brand-sub{text-align:center;color:var(--muted);font-size:12.5px;margin-top:4px}
+.field{margin-top:14px}
+.login-foot{margin-top:18px;padding-top:14px;border-top:1px solid var(--stroke2);font-size:11.5px;color:var(--muted);text-align:center;line-height:1.8}
+.err{color:#fecaca;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);padding:10px 12px;border-radius:11px;font-size:12.5px;margin-top:12px;font-weight:700}
+
+/* ===== الهيكل ===== */
+#app{max-width:1280px;margin:0 auto;padding:14px 14px 92px}
+header.topbar{position:sticky;top:10px;z-index:40;padding:12px 14px;border-radius:18px;margin-bottom:14px;display:flex;align-items:center;gap:12px}
+.avatar{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-weight:900;font-size:15px;background:linear-gradient(135deg,rgba(56,189,248,.35),rgba(129,140,248,.35));border:1px solid var(--stroke);flex:0 0 auto}
+.topbar .who{line-height:1.35;min-width:0}
+.topbar .who b{font-size:14.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .who span{font-size:11.5px;color:var(--muted)}
+.nav{display:flex;gap:6px;overflow-x:auto;padding:6px;border-radius:16px;scrollbar-width:none;margin-bottom:14px}
+.nav::-webkit-scrollbar{display:none}
+.nav button{padding:9px 14px;border-radius:12px;font-size:13px;color:var(--muted);border:1px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.nav button.on{color:#eaf6ff;background:rgba(56,189,248,.16);border-color:rgba(56,189,248,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.page{display:none;animation:fade .3s ease}
+.page.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* بطاقات */
+.card{padding:18px;border-radius:var(--r);margin-bottom:14px}
+.card h3{font-size:15.5px;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.card .desc{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+.grid{display:grid;gap:12px}
+.grid.g2{grid-template-columns:repeat(2,1fr)}
+.grid.g3{grid-template-columns:repeat(3,1fr)}
+.grid.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:860px){.grid.g4{grid-template-columns:repeat(2,1fr)}.grid.g3{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.grid.g2,.grid.g3{grid-template-columns:1fr}}
+
+/* كروت إحصاء */
+.stat{padding:16px;border-radius:16px;position:relative;overflow:hidden}
+.stat .k{font-size:11.5px;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:6px}
+.stat .v{font-size:26px;font-weight:900;margin-top:8px;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.stat .s{font-size:11px;color:var(--muted);margin-top:4px}
+.stat.acc .v{color:#7dd3fc}.stat.ok .v{color:#6ee7b7}.stat.warn .v{color:#fcd34d}.stat.vio .v{color:#c7d2fe}.stat.pink .v{color:#f9a8d4}
+.stat::after{content:'';position:absolute;inset:auto -30px -30px auto;width:90px;height:90px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.09),transparent 70%)}
+
+/* جداول */
+.tbl-wrap{overflow:auto;border-radius:14px;border:1px solid var(--stroke2)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:rgba(255,255,255,.05);color:var(--muted);font-size:11.5px;font-weight:800;text-align:right;padding:11px 10px;white-space:nowrap;position:sticky;top:0;backdrop-filter:blur(10px)}
+td{padding:10px;border-top:1px solid rgba(255,255,255,.055);vertical-align:middle}
+tbody tr:hover{background:rgba(255,255,255,.035)}
+td .num{font-variant-numeric:tabular-nums}
+.empty{padding:34px 10px;text-align:center;color:var(--muted);font-size:13px}
+.empty .ic{font-size:34px;display:block;margin-bottom:8px;opacity:.6}
+
+/* المودال */
+.modal{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(3,7,14,.68);backdrop-filter:blur(8px)}
+.modal.on{display:flex}
+.modal-box{width:100%;max-width:480px;max-height:90vh;overflow:auto;padding:22px;border-radius:22px;animation:pop .28s ease}
+.modal-box h3{margin-bottom:14px;font-size:17px}
+.qtySheet{position:fixed;inset:0;z-index:130;display:none;align-items:flex-end;justify-content:center;background:rgba(2,6,23,.62);backdrop-filter:blur(6px)}
+.qtySheet.on{display:flex}
+.qtySheet .box{width:100%;max-width:430px;margin:0 auto;padding:18px 18px 22px;border-radius:22px 22px 0 0;background:linear-gradient(180deg,#111c33,#0b1424);border:1px solid rgba(255,255,255,.1);box-shadow:0 -14px 40px rgba(0,0,0,.55)}
+.qtySheet .nm{font-size:16px;font-weight:800;margin:2px 0}
+.qtySheet .bc{font-size:12px;color:#9aa8c2;direction:ltr;text-align:right;font-family:monospace}
+.qtySheet .big{display:flex;align-items:center;gap:10px;margin:14px 0 10px}
+.qtySheet .big input{flex:1;height:58px;font-size:30px;font-weight:900;text-align:center;border-radius:14px;border:2px solid rgba(56,189,248,.45);background:rgba(56,189,248,.08);color:#e8f4ff}
+.qtySheet .steppers{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.qtySheet .steppers button{height:40px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#e2e8f0;font-weight:800;font-size:13px}
+.qtySheet .foot{display:flex;gap:10px}
+.qtySheet .foot .btn{flex:1;height:46px}
+.bellWrap{position:relative;display:inline-flex}
+.bellDot{position:absolute;top:-4px;left:-4px;min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font-size:11px;font-weight:800;display:none;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 0 0 2px rgba(11,20,36,.9)}
+.bellDot.on{display:flex}
+.permGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.permItem{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:8px 10px;cursor:pointer;font-size:13px;margin:0}
+.permItem input{width:16px;height:16px;accent-color:#38bdf8;margin:0}
+.permBtns{display:flex;gap:8px;margin-top:8px}
+.permBadge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:999px;background:rgba(56,189,248,.15);color:#7dd3fc;margin:2px}
+@media(max-width:560px){.permGrid{grid-template-columns:1fr}}
+.modal-foot{display:flex;gap:10px;margin-top:18px}
+.modal-foot .btn{flex:1}
+
+/* توست */
+#toasts{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:8px;align-items:center;width:max-content;max-width:92vw}
+.toast{padding:11px 18px;border-radius:13px;font-size:13px;font-weight:700;background:rgba(15,23,42,.9);border:1px solid var(--stroke);backdrop-filter:blur(16px);box-shadow:0 12px 30px rgba(0,0,0,.5);animation:tin .3s ease;display:flex;align-items:center;gap:8px}
+.toast.ok{border-color:rgba(52,211,153,.45);color:#bbf7d0}
+.toast.bad{border-color:rgba(248,113,113,.45);color:#fecaca}
+.toast.warn{border-color:rgba(251,191,36,.45);color:#fde68a}
+@keyframes tin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ===== شاشة السكانر ===== */
+#scanWrap{position:relative}
+.cam{position:relative;border-radius:22px;overflow:hidden;background:#03060c;border:1px solid var(--stroke);box-shadow:var(--sh);aspect-ratio:4/3;max-height:62vh}
+.cam video{width:100%;height:100%;object-fit:cover;display:block}
+.cam .overlay{position:absolute;inset:0;pointer-events:none}
+.scanline{position:absolute;left:6%;right:6%;height:2px;background:linear-gradient(90deg,transparent,#38bdf8,#818cf8,#38bdf8,transparent);box-shadow:0 0 18px 3px rgba(56,189,248,.75);animation:sweep 2.2s ease-in-out infinite}
+@keyframes sweep{0%,100%{top:14%}50%{top:84%}}
+.corner{position:absolute;width:34px;height:34px;border:3px solid rgba(56,189,248,.9);filter:drop-shadow(0 0 8px rgba(56,189,248,.8))}
+.corner.tl{top:12%;left:8%;border-right:none;border-bottom:none;border-radius:8px 0 0 0}
+.corner.tr{top:12%;right:8%;border-left:none;border-bottom:none;border-radius:0 8px 0 0}
+.corner.bl{bottom:12%;left:8%;border-right:none;border-top:none;border-radius:0 0 0 8px}
+.corner.br{bottom:12%;right:8%;border-left:none;border-top:none;border-radius:0 0 8px 0}
+.cam .hint{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:12px;color:#cbd5e1;text-shadow:0 2px 8px #000}
+.cam .st{position:absolute;top:10px;right:10px;display:flex;gap:6px;flex-wrap:wrap}
+.cam-off{display:grid;place-items:center;height:100%;padding:24px;text-align:center;color:var(--muted);font-size:13px;line-height:1.9}
+.cam-off .ic{font-size:40px;margin-bottom:10px;display:block}
+.feed{max-height:330px;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-left:2px}
+.fitem{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:13px;background:rgba(255,255,255,.055);border:1px solid var(--stroke2);animation:tin .25s ease}
+.fitem .b{flex:1;min-width:0}
+.fitem .b b{font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fitem .b span{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.fitem .q{font-size:15px;font-weight:900;color:#7dd3fc;font-variant-numeric:tabular-nums;min-width:34px;text-align:center}
+.fitem .undo{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:rgba(255,255,255,.06);font-size:13px}
+.fitem.new{box-shadow:0 0 0 1px rgba(129,140,248,.55),0 8px 22px rgba(129,140,248,.20)}
+pulse{display:block}
+
+/* بطاقة المنتج الممسوح */
+.prod{padding:16px;border-radius:18px;display:flex;gap:14px;align-items:center;animation:pop .3s ease;margin-bottom:12px}
+.prod .ph{width:56px;height:56px;border-radius:14px;display:grid;place-items:center;font-size:24px;background:linear-gradient(135deg,rgba(56,189,248,.22),rgba(129,140,248,.22));border:1px solid var(--stroke2);flex:0 0 auto}
+.prod .info{flex:1;min-width:0}
+.prod .nm{font-size:15px;font-weight:800;line-height:1.4}
+.prod .meta{font-size:11.5px;color:var(--muted);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap}
+.prod .cnt{font-size:32px;font-weight:900;color:#7dd3fc;font-variant-numeric:tabular-nums;line-height:1}
+.prod .cntl{font-size:10.5px;color:var(--muted);text-align:center;margin-top:2px}
+.qtyctl{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.qtyctl .btn{flex:0 0 auto}
+.qtyctl input{width:96px;text-align:center;font-weight:900;font-size:17px;padding:10px}
+
+/* سجل/إدخال يدوي */
+.seg{display:flex;gap:6px;padding:5px;border-radius:13px;background:rgba(255,255,255,.05);border:1px solid var(--stroke2)}
+.seg button{flex:1;padding:9px;border-radius:9px;font-size:12.5px;color:var(--muted)}
+.seg button.on{background:rgba(56,189,248,.18);color:#eaf6ff;box-shadow:inset 0 1px 0 rgba(255,255,255,.1)}
+.h2{height:2px;background:var(--stroke2);border-radius:2px;margin:12px 0}
+.bar{height:9px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#34d399,#38bdf8);transition:width .5s ease}
+.kbd{font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid var(--stroke);background:rgba(255,255,255,.07);font-family:monospace}
+.tabsline{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;scrollbar-width:none}
+.tabsline button{padding:8px 14px;border-radius:11px;font-size:12.5px;color:var(--muted);border:1px solid var(--stroke2);white-space:nowrap}
+.tabsline button.on{color:#eaf6ff;background:rgba(56,189,248,.15);border-color:rgba(56,189,248,.35)}
+.kpi-mini{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.switch{position:relative;width:46px;height:26px;border-radius:99px;background:rgba(255,255,255,.14);border:1px solid var(--stroke);transition:.2s;flex:0 0 auto}
+.switch::after{content:'';position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:#cbd5e1;transition:.22s}
+.switch.on{background:linear-gradient(135deg,#34d399,#10b981);border-color:transparent}
+.switch.on::after{right:22px;background:#fff}
+.user-row{display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;border:1px solid var(--stroke2);background:rgba(255,255,255,.04);margin-bottom:9px;flex-wrap:wrap}
+.user-row.dis{opacity:.55}
+.user-row .b{flex:1;min-width:140px}
+.user-row .b b{font-size:13.5px}
+.user-row .b span{font-size:11.5px;color:var(--muted);display:block;margin-top:2px}
+.cc-card{padding:15px;border-radius:16px;border:1px solid var(--stroke2);background:rgba(255,255,255,.045);position:relative;overflow:hidden}
+.cc-card.closed{border-color:rgba(248,113,113,.25)}
+.cc-card.open{border-color:rgba(52,211,153,.30);box-shadow:0 0 0 1px rgba(52,211,153,.12),0 10px 26px rgba(0,0,0,.25)}
+.cc-card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.cc-card .nm{font-weight:900;font-size:15px}
+.cc-card .code{font-family:monospace;font-size:11.5px;color:var(--muted)}
+.cc-card .figs{display:flex;gap:16px;margin:12px 0;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.cc-card .figs b{display:block;color:#eef2f9;font-size:15px;font-weight:900;font-variant-numeric:tabular-nums}
+.sig{height:52px;background:rgba(255,255,255,.04);border:1px dashed var(--stroke2);border-radius:10px;display:grid;place-items:center;font-family:monospace;font-size:11px;color:#cbd5e1;overflow:hidden;padding:4px}
+.sig svg{max-height:100%;max-width:100%}
+.note{font-size:12px;line-height:1.9;color:#cbd5e1;background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.20);border-radius:13px;padding:12px 14px}
+.badge-count{font-size:10.5px;padding:1px 7px;border-radius:99px;background:rgba(56,189,248,.2);color:#bae6fd;font-weight:800}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:9px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ===== شريط سفلي للموبايل ===== */
+@media(max-width:760px){
+  #app{padding-bottom:96px}
+  .nav{position:fixed;bottom:8px;left:8px;right:8px;z-index:60;margin:0;padding:8px;border-radius:20px;background:rgba(12,18,32,.82);backdrop-filter:blur(24px);box-shadow:0 12px 34px rgba(0,0,0,.55);justify-content:space-around;overflow-x:auto;gap:2px}
+  .nav button{flex-direction:column;font-size:10.5px;gap:2px;padding:7px 9px;min-width:56px;justify-content:center}
+  .nav button span{font-size:17px}
+  .topbar{top:6px}
+  .cam{aspect-ratio:3/4;max-height:52vh}
+  .modal-box{max-height:92vh;border-radius:20px}
+  .qtyctl .btn{flex:1}
+  #scanBody .grid.g2{grid-template-columns:1fr}
+}
+
+@media print{
+  body{background:#fff!important;color:#000!important}
+  #mesh,body::before,body::after,.nav,#toasts,.no-print{display:none!important}
+  .glass{box-shadow:none!important;border:1px solid #999!important;background:#fff!important;backdrop-filter:none!important}
+  #app{max-width:none;padding:0}
+  th{background:#eee!important;color:#000!important}
+  td,th{border-color:#bbb!important;color:#000!important}
+  header.topbar{position:static}
+}
+.cfgHide{display:none !important}
+.cfgAdmin{display:none !important}
+.cfgHide{display:none !important}
+#cfgUrl,#cfgKey,#cfgPass,#btnSaveCfg,#engineSeg,#lgCfgBtn{display:none !important}
+</style>
+</head>
+<body>
+<div id="mesh"></div>
+<div id="toasts"></div>
+
+<!-- ================= شاشة الدخول ================= -->
+<div id="login">
+  <div class="login-card glass">
+    <div class="logo">📦</div>
+    <div class="brand-title">نظام الجرد الذكي</div>
+    <div class="brand-sub">Smart Inventory · مسح باركود · مراكز تكلفة · صلاحيات</div>
+
+    <div class="field">
+      <label>اسم المستخدم</label>
+      <input id="lgUser" autocomplete="username" placeholder="اكتب اسم المستخدم" spellcheck="false">
+    </div>
+    <div class="field">
+      <label>كلمة المرور</label>
+      <input id="lgPass" type="password" autocomplete="current-password" placeholder="••••••••">
+    </div>
+    <div class="row" style="margin-top:16px;justify-content:space-between">
+      <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;color:#cbd5e1">
+        <input type="checkbox" id="lgShow" style="width:16px;height:16px;accent-color:#38bdf8"> إظهار كلمة المرور
+      </label>
+      <span class="chip acc" id="lgMode">أوفلاين</span>
+    </div>
+    <button class="btn primary block" id="btnLogin" style="margin-top:16px;padding:14px">🔓 تسجيل الدخول</button>
+    <div id="lgErr" class="err hide"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn sm ghost" id="btnDiag" style="flex:1">🩺 فحص الاتصال</button>
+      <button class="btn sm ghost" id="btnDbUrl" style="flex:1">🔗 رابط قاعدة البيانات</button>
+    </div>
+    <div id="lgDiag" class="small" style="margin-top:10px;color:#9aa8c2;line-height:1.9"></div>
+    <div class="login-foot">
+      دخول أول مرة؟<br>
+      <b style="color:#bae6fd">admin</b> / <b style="color:#bae6fd">admin123</b>
+    </div>
+  </div>
+</div>
+
+<!-- ================= نافذة إدخال كمية المسح ================= -->
+<div class="qtySheet" id="qtySheet">
+  <div class="box">
+    <div class="spread" style="margin-bottom:6px">
+      <span class="chip acc">📷 تم قراءة الباركود</span>
+      <button class="btn sm ghost" id="qsClose" style="height:30px">✕</button>
+    </div>
+    <div class="nm" id="qsName">—</div>
+    <div class="bc" id="qsBarcode">—</div>
+    <div class="tiny muted" id="qsInfo" style="margin-top:6px">—</div>
+    <div class="big">
+      <button class="btn sm" id="qsMinus" style="height:58px;width:56px;font-size:22px">−</button>
+      <input id="qsQty" type="number" inputmode="numeric" value="1" min="1">
+      <button class="btn sm" id="qsPlus" style="height:58px;width:56px;font-size:22px">+</button>
+    </div>
+    <div class="steppers">
+      <button data-add="5">+5</button><button data-add="10">+10</button>
+      <button data-add="25">+25</button><button data-add="50">+50</button>
+    </div>
+    <div class="foot">
+      <button class="btn ghost" id="qsCancel">إلغاء</button>
+      <button class="btn primary" id="qsOk">✅ تسجيل في الجرد</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= التطبيق ================= -->
+<div id="app" class="hide">
+  <header class="topbar glass">
+    <div class="avatar" id="meAv">A</div>
+    <div class="who" style="flex:1">
+      <b id="meName">—</b>
+      <span id="meMeta">—</span>
+    </div>
+    <div class="row" style="gap:8px">
+      <span class="chip acc hide" id="netChip"><span class="dot"></span> متصل</span>
+      <span class="chip vio" id="roleChip">—</span>
+      <span class="bellWrap"><button class="btn icon" id="btnBell" title="تنبيهات المسح">🔔</button><span class="bellDot" id="bellDot">0</span></span>
+      <button class="btn icon" id="btnTheme" title="تغيير المظهر">🌙</button>
+      <button class="btn icon" id="btnLogout" title="خروج">⏏️</button>
+    </div>
+  </header>
+
+  <nav class="nav glass soft" id="nav"></nav>
+
+  <!-- ============ لوحة التحكم ============ -->
+  <section class="page" id="p-dashboard">
+    <div class="card glass">
+      <div class="spread">
+        <div>
+          <h3>👋 أهلاً <span id="dashName">—</span></h3>
+          <div class="desc" style="margin:0">نظرة سريعة على حالة الجرد</div>
+        </div>
+        <div id="dashStatus"></div>
+      </div>
+    </div>
+    <div class="grid g4" id="dashStats"></div>
+    <div class="grid g2" style="margin-top:14px">
+      <div class="card glass">
+        <h3>📋 آخر عمليات الجرد</h3>
+        <div class="desc">أحدث 8 عمليات مسح على النظام</div>
+        <div id="dashRecent"></div>
+      </div>
+      <div class="card glass">
+        <h3>⚡ إجراءات سريعة</h3>
+        <div class="desc">اختصارات للمهام المتكررة</div>
+        <div style="display:grid;gap:9px" id="dashActions"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ السكانر ============ -->
+  <section class="page" id="p-scan">
+    <div class="card glass" id="scanLocked" style="display:none">
+      <div class="center" style="padding:10px 0">
+        <div style="font-size:44px;margin-bottom:10px">🔒</div>
+        <h3 style="justify-content:center">الجرد مقفول</h3>
+        <div class="desc" style="max-width:420px;margin:6px auto 0" id="scanLockedMsg">تم إغلاق الجرد لمركز التكلفة الخاص بك. من فضلك تواصل مع المدير لفتح الجرد لكي تبدأ المسح.</div>
+      </div>
+    </div>
+
+    <div id="scanBody">
+      <div class="card glass">
+        <div class="spread" style="margin-bottom:10px">
+          <div>
+            <h3>📷 كاميرا المسح</h3>
+            <div class="desc" style="margin:0">وجّه الكاميرا للباركود أو QR</div>
+          </div>
+          <span class="chip ok" id="camState"><span class="dot off"></span> مغلقة</span>
+        </div>
+        <div class="cam" id="camBox">
+          <video id="video" playsinline muted></video>
+          <div class="overlay">
+            <span class="corner tl"></span><span class="corner tr"></span>
+            <span class="corner bl"></span><span class="corner br"></span>
+            <div class="scanline" id="scanline"></div>
+            <div class="st"></div>
+            <div class="hint" id="camHint">جاهز للمسح — ثبّت الكاميرا على الباركود</div>
+          </div>
+          <div class="cam-off" id="camOff">
+            <div>
+              <span class="ic">📸</span>
+              اضغط <b>تشغيل الكاميرا</b> لبدء المسح<br>
+              <span class="tiny">مطلوب تشغيل الكاميرا من متصفح حديث و https أو localhost</span>
+            </div>
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="btnCam">📷 تشغيل الكاميرا</button>
+          <button class="btn" id="btnTorch">💡 الفلاش</button>
+          <button class="btn" id="btnSwitchCam">🔄 تبديل الكاميرا</button>
+          <span class="tiny muted" id="camInfo"></span>
+        </div>
+        <div class="seg" style="margin-top:12px" id="scanPlans">
+          <button class="on" data-plan="continuous">⚡ مسح متواصل</button>
+          <button data-plan="confirm">✋ تأكيد كل منتج</button>
+        </div>
+        <div style="margin-top:12px" id="progWrap">
+          <div class="spread tiny muted" style="margin-bottom:6px">
+            <span id="progLabel">صفر عمليات مسح</span><span id="progPct">0%</span>
+          </div>
+          <div class="bar"><i id="progBar" style="width:0"></i></div>
+        </div>
+      </div>
+
+      <div class="grid g2">
+        <div>
+          <div id="prodCard"></div>
+          <div class="card glass">
+            <h3>⌨️ إدخال يدوي / بحث</h3>
+            <div class="desc">اكتب الباركود واضغط Enter — أو ابحث بالاسم</div>
+            <form id="manualForm" class="row" style="gap:8px" autocomplete="off">
+              <input id="manualCode" placeholder="باركود المنتج أو اسمه..." style="flex:1" enterkeyhint="go">
+              <button class="btn primary" type="submit">➕</button>
+            </form>
+            <div class="tiny muted" style="margin-top:8px">يتم عرض الحساب المباشر: الكمية المطلوبة ← الكمية الممسوحة ← الفارق</div>
+          </div>
+        </div>
+        <div class="card glass">
+          <div class="spread" style="margin-bottom:10px">
+            <h3>🧾 سجل الجلسة</h3>
+            <span class="chip acc" id="feedCount">0</span>
+          </div>
+          <div class="desc">محاولاتك في هذه الجلسة — يمكنك التراجع عن أي مسح</div>
+          <div class="feed" id="feed"></div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn sm" id="btnRepeat">🔁 تكرار آخر مسح</button>
+            <button class="btn sm" id="btnExportSession">⬇️ تصدير جلستي</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ الأصناف ============ -->
+  <section class="page" id="p-items">
+    <div class="card glass">
+      <div class="spread">
+        <div><h3>📦 الأصناف</h3><div class="desc" style="margin:0">كتالوج المنتجات في مركز التكلفة</div></div>
+        <button class="btn primary sm" id="btnAddItem">＋ صنف جديد</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <input id="itemSearch" placeholder="🔍 بحث بالباركود أو الاسم..." style="flex:1;min-width:180px">
+        <button class="btn" id="btnBadgeSheet">🏷️ طباعة ملصقات</button>
+        <button class="btn" id="btnExportItems">⬇️ تصدير</button>
+        <button class="btn" id="btnRefreshItems" title="تحديث من قاعدة البيانات">🔄 تحديث</button>
+        <button class="btn" id="btnFixItems" title="متاحة للمدير فقط">🔧 إصلاح الأصناف</button>
+      </div>
+      <div class="tbl-wrap" style="margin-top:12px">
+        <table><thead><tr>
+          <th>الصنف</th><th>الباركود</th><th>الوحدة</th><th>المطلوب</th><th>الممسوح</th><th>الفارق</th><th>الحالة</th><th></th>
+        </tr></thead><tbody id="itemsBody"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ التقارير ============ -->
+  <section class="page" id="p-reports">
+    <div class="card glass">
+      <div class="spread">
+        <div><h3>📊 تقرير الجرد</h3><div class="desc" style="margin:0">ملخص الفروقات والأصناف المفقودة والزائدة</div></div>
+        <button class="btn sm" id="btnPrintReport">🖨️ طباعة</button>
+      </div>
+      <div class="grid g4" id="repStats" style="margin-top:14px"></div>
+      <div class="tabsline" style="margin-top:16px" id="repTabs">
+        <button class="on" data-f="all">الكل</button>
+        <button data-f="miss">نواقص</button>
+        <button data-f="over">زيادة</button>
+        <button data-f="exact">مطابق</button>
+      </div>
+      <div class="tbl-wrap">
+        <table><thead><tr>
+          <th>الصنف</th><th>الباركود</th><th>مطلوب</th><th>ممسوح</th><th>الفارق</th><th>متابعة</th>
+        </tr></thead><tbody id="repBody"></tbody></table>
+      </div>
+    </div>
+    <div class="card glass">
+      <h3>👥 أداء القارئين</h3>
+      <div class="desc">عدد عمليات المسح لكل مستخدم على كل المراكز (للمدير فقط)</div>
+      <div class="tbl-wrap">
+        <table><thead><tr><th>المستخدم</th><th>المركز</th><th>عمليات</th><th>أصناف</th><th>آخر نشاط</th></tr></thead><tbody id="repUsers"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ المراكز ============ -->
+  <section class="page" id="p-centers">
+    <div class="card glass">
+      <div class="spread">
+        <div><h3>🏢 مراكز التكلفة</h3><div class="desc" style="margin:0">فتح/إغلاق الجرد لكل مركز على حدة — الإغلاق يمنع كل الأجهزة مرة واحدة</div></div>
+        <button class="btn primary sm" id="btnAddCC">＋ مركز جديد</button>
+      </div>
+    </div>
+    <div class="grid g3" id="ccGrid"></div>
+  </section>
+
+  <!-- ============ المستخدمون ============ -->
+  <section class="page" id="p-users">
+    <div class="card glass">
+      <div class="spread">
+        <div><h3>👤 المستخدمون والصلاحيات</h3><div class="desc" style="margin:0">إيقاف مستخدم يقطع جلسته فورًا من كل الأجهزة</div></div>
+        <button class="btn primary sm" id="btnAddUser">＋ مستخدم جديد</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <input id="userSearch" placeholder="🔍 بحث بالاسم..." style="flex:1;min-width:180px">
+      </div>
+      <div class="tabsline" style="margin-top:12px" id="userTabs">
+        <button class="on" data-r="all">الكل</button>
+        <button data-r="active">نشط</button>
+        <button data-r="stopped">موقوف</button>
+      </div>
+      <div id="usersList" style="margin-top:6px"></div>
+    </div>
+    <div class="card glass">
+      <h3>🧩 مصفوفة الصلاحيات</h3>
+      <div class="desc">ما يستطيع كل دور فعله في النظام</div>
+      <div class="tbl-wrap"><table><thead><tr><th>الصلاحية</th><th>مدير</th><th>مشرف</th><th>قارئ</th><th>مراجع</th></tr></thead><tbody id="permMatrix"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ============ المزامنة ============ -->
+  <section class="page" id="p-sync">
+    <div class="card glass">
+      <h3>☁️ قاعدة البيانات السحابية</h3>
+      <div class="desc">الاتصال مضبوط جوّه الملف — مفيش إعدادات ظاهرة لأي حد، ومفيش أي حد يقدر يغيّرها من الشاشة. البيانات والصلاحيات كلها من قاعدة البيانات.</div>
+      <div class="note" id="cfgInfo" style="margin-top:0"></div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="btnTestCfg">🔌 اختبار الاتصال</button>
+        <span class="chip" id="cfgState">—</span>
+      </div>
+      <div class="note" style="margin-top:14px">
+        <b>طريقة العمل:</b> كل عملية مسح بتتكتب في قاعدة البيانات فورًا، وكل الأجهزة بتتزامن كل أقل من ثانية، 
+        والإيقاف/إغلاق الجرد بيوصل لأي جهاز في اللحظة. <span class="kbd">مفيش وصول مباشر للجداول</span> — كل حاجة عبر دوال محمية.
+        <br><b>ملاحظة أمنية:</b> المفتاح المستخدم في الملف هو «publishable» — آمن إنه يبان؛ أما المفتاح السري <span class="kbd">sb_secret_</span> فلازم يفضل سرّي وما يدخلش أي ملف.
+      </div>
+    </div>
+    <div class="grid g2">
+      <div class="card glass">
+        <h3>🔄 طابور المزامنة</h3>
+        <div class="desc">حركات في انتظار الرفع للسيرفر</div>
+        <div class="grid g2">
+          <div class="stat glass soft acc"><div class="k">معلّق</div><div class="v" id="qPend">0</div><div class="s">حركة</div></div>
+          <div class="stat glass soft ok"><div class="k">تم الرفع</div><div class="v" id="qDone">0</div><div class="s">حركة</div></div>
+        </div>
+        <button class="btn block" style="margin-top:12px" id="btnSyncNow">⬆️ مزامنة الآن</button>
+      </div>
+      <div class="card glass">
+        <h3>💾 نسخ احتياطي</h3>
+        <div class="desc">ملف واحد يشمل: المستخدمين، المراكز، الأصناف، كل الحركات، الإعدادات</div>
+        <div style="display:grid;gap:9px">
+          <button class="btn" id="btnBackup">⬇️ تنزيل نسخة احتياطية (JSON)</button>
+          <button class="btn" id="btnRestore">⬆️ استعادة من نسخة</button>
+          <button class="btn bad" id="btnResetData">🗑️ تصفير بيانات الجرد</button>
+        </div>
+        <input type="file" id="fileRestore" accept=".json" class="hide">
+      </div>
+    </div>
+    <div class="card glass cfgAdmin">
+      <h3>🧱 ملف قاعدة البيانات (SQL)</h3>
+      <div class="desc">ده ملف SQL كامل جاهز — يتشغّل مرة واحدة في Supabase → SQL Editor وخلاص</div>
+      <div class="tbl-wrap"><pre id="schemaPre" style="margin:0;padding:14px;font-size:11.5px;line-height:1.85;color:#cfe3ff;font-family:monospace;direction:ltr;text-align:left;white-space:pre-wrap"></pre></div>
+      <button class="btn sm" id="btnSchemaDl" style="margin-top:10px">⬇️ تنزيل ملف SQL الجاهز (لمرة واحدة)</button>
+      <button class="btn ghost sm" id="btnSchemaCopy" style="margin-top:10px">📋 نسخ نموذج SQL</button>
+    </div>
+  </section>
+
+  <!-- ============ الإعدادات ============ -->
+  <section class="page" id="p-settings">
+    <div class="card glass">
+      <h3>⚙️ إعدادات النظام</h3>
+      <div class="desc">اختصاصات العرض والمسح</div>
+      <div class="grid g2">
+        <div><label>اسم المنشأة</label><input id="stCompany"></div>
+        <div><label>كلمة مرور المدير</label><input id="stPass" type="password" placeholder="اتركها فارغة لعدم التغيير"></div>
+        <div><label> صيغة التاريخ</label><select id="stDateFmt"><option value="ar">عربي (مصر)</option><option value="iso">ISO (2026-11-14)</option></select></div>
+        <div><label>وضع المسح الافتراضي</label><select id="stScanMode"><option value="continuous">مسح متواصل</option><option value="confirm">تأكيد كل منتج</option></select></div>
+        <div><label>عدد المسحات المتتالية لتجميعها</label><input id="stBurst" type="number" min="1" max="10" value="2"></div>
+        <div><label>صوت تأكيد المسح</label><select id="stSound"><option value="1">مفعّل</option><option value="0">صامت</option></select></div>
+        <div><label>اهتزاز عند المسح (الموبايل)</label><select id="stVibe"><option value="1">مفعّل</option><option value="0">متوقف</option></select></div>
+        <div><label>النمط الليلي</label><select id="stTheme"><option value="dark">ليلي زجاجي</option><option value="light">نهاري زجاجي</option></select></div>
+        <div><label>🔔 تنبيه صوتي عند مسح الآخرين (للمالك)</label><select id="stNotifySound"><option value="1">مفعّل</option><option value="0">صامت</option></select></div>
+        <div><label>🔔 نافذة تنبيه عائمة (للمالك)</label><select id="stNotifyPopup"><option value="1">مفعّل</option><option value="0">مغلق</option></select></div>
+      </div>
+      <button class="btn primary" style="margin-top:14px" id="btnSaveSettings">💾 حفظ الإعدادات</button>
+    </div>
+    <div class="card glass">
+      <h3>🔐 سجل الأمان</h3>
+      <div class="desc">آخر عمليات الدخول والخروج وتغييرات الصلاحيات</div>
+      <div class="tbl-wrap"><table><thead><tr><th>الوقت</th><th>المستخدم</th><th>الحدث</th><th>الجهاز</th></tr></thead><tbody id="auditBody"></tbody></table></div>
+    </div>
+  </section>
+</div>
+
+<!-- ================= المودال العام ================= -->
+<div class="modal" id="modal">
+  <div class="modal-box glass" id="modalBox"></div>
+</div>
+
+<!-- ================= سكريبتات خارجية للإسكانر ================= -->
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script src="https://unpkg.com/barcode-detector@2/dist/barcode-detector-polyfill.min.js"></script>
+<script>
+/* =====================================================================
+   نظام الجرد الذكي — Smart Inventory
+   ملف واحد · أوفلاين · جاهز للربط بقاعدة بيانات من طبقة DB
+   ===================================================================== */
+'use strict';
+
+/* ------------------------------ أدوات مساعدة ------------------------------ */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = (p = '') => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const now = () => Date.now();
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const norm = (s) => String(s == null ? '' : s).trim().toLowerCase().replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه');
+const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+const fmt = (n, d = 0) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmtQ = (n) => { const x = Number(n || 0); return Number.isInteger(x) ? fmt(x) : fmt(x, 2); };
+function fmtDate(ts, mode) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  const f = mode || (DB && DB.db && DB.db.settings && DB.db.settings.dateFmt) || 'ar';
+  const p = (x) => String(x).padStart(2, '0');
+  const t = `${p(d.getHours())}:${p(d.getMinutes())}`;
+  if (f === 'iso') return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${t}`;
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${t}`;
+}
+function timeAgo(ts) {
+  if (!ts) return '—';
+  const s = Math.floor((now() - ts) / 1000);
+  if (s < 45) return 'الآن';
+  if (s < 3600) return `قبل ${Math.floor(s / 60)} دقيقة`;
+  if (s < 86400) return `قبل ${Math.floor(s / 3600)} ساعة`;
+  if (s < 604800) return `قبل ${Math.floor(s / 86400)} يوم`;
+  return fmtDate(ts).split(' ')[0];
+}
+function hexId(n = 8) {
+  const c = '0123456789abcdef';
+  let s = ''; for (let i = 0; i < n; i++) s += c[Math.floor(Math.random() * 16)];
+  return s;
+}
+function safeJSON(s, fb) { try { return JSON.parse(s); } catch (e) { return fb; } }
+
+/* ------------------------------ التنبيهات ------------------------------ */
+const Toast = {
+  show(msg, type = '', ic = '') {
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.innerHTML = `<span>${ic || (type === 'ok' ? '✅' : type === 'bad' ? '⛔' : type === 'warn' ? '⚠️' : 'ℹ️')}</span><span>${esc(msg)}</span>`;
+    $('#toasts').appendChild(el);
+    setTimeout(() => { el.style.transition = '.3s'; el.style.opacity = '0'; el.style.transform = 'translateY(10px)'; setTimeout(() => el.remove(), 320); }, 2400);
+  },
+  ok(m) { this.show(m, 'ok'); },
+  bad(m) { this.show(m, 'bad'); },
+  warn(m) { this.show(m, 'warn'); },
+  info(m) { this.show(m, '', 'ℹ️'); }
+};
+
+/* ------------------------------ المودال ------------------------------ */
+const Modal = {
+  open(html) { $('#modalBox').innerHTML = html; $('#modal').classList.add('on'); return $('#modalBox'); },
+  close() { $('#modal').classList.remove('on'); $('#modalBox').innerHTML = ''; },
+  confirm(title, body, okText = 'تأكيد', danger = false) {
+    return new Promise((res) => {
+      this.open(`<h3>${title}</h3><div class="small" style="line-height:1.9;color:#cbd5e1">${body}</div>
+        <div class="modal-foot"><button class="btn ${danger ? 'bad' : 'primary'}" id="mcOk">${okText}</button><button class="btn ghost" id="mcNo">إلغاء</button></div>`);
+      $('#mcOk').onclick = () => { Modal.close(); res(true); };
+      $('#mcNo').onclick = () => { Modal.close(); res(false); };
+    });
+  },
+  prompt(title, fields, okText = 'حفظ') {
+    return new Promise((res) => {
+      const html = fields.map((f, i) => {
+        const id = 'mp' + i;
+        if (f.type === 'select') return `<div class="field"><label>${f.label}</label><select id="${id}">${f.options.map(o => `<option value="${esc(o.value)}" ${f.value === o.value ? 'selected' : ''}>${esc(o.text)}</option>`).join('')}</select></div>`;
+        if (f.type === 'perms') return `<div class="field"><label>${f.label}</label><div class="permGrid">${
+          Object.keys(PERM_LABELS).map(k => `<label class="permItem"><input type="checkbox" data-perm="${k}" ${f.value && f.value[k] ? 'checked' : ''}><span>${PERM_LABELS[k].i} ${PERM_LABELS[k].t}</span></label>`).join('')
+        }</div><div class="permBtns"><button type="button" class="btn sm ghost" id="permAll">تحديد الكل</button><button type="button" class="btn sm ghost" id="permNone">إلغاء الكل</button></div></div>`;
+        if (f.type === 'checkbox') return `<div class="field row" style="justify-content:space-between"><label style="margin:0">${f.label}</label><input type="checkbox" id="${id}" ${f.value ? 'checked' : ''} style="width:20px;height:20px;accent-color:#38bdf8"></div>`;
+        return `<div class="field"><label>${f.label}</label><input id="${id}" type="${f.type || 'text'}" value="${esc(f.value ?? '')}" placeholder="${esc(f.ph || '')}" ${f.dir ? `dir="${f.dir}"` : ''}></div>`;
+      }).join('');
+      this.open(`<h3>${title}</h3>${html}<div class="modal-foot"><button class="btn primary" id="mpOk">${okText}</button><button class="btn ghost" id="mpNo">إلغاء</button></div>`);
+      setTimeout(() => { const f = $('#mp0'); if (f) f.focus(); }, 120);
+      if ($('#permAll')) $('#permAll').onclick = () => $$('input[data-perm]').forEach(c => c.checked = true);
+      if ($('#permNone')) $('#permNone').onclick = () => $$('input[data-perm]').forEach(c => c.checked = false);
+      // تغيير الدور يحدّث الصلاحيات المقترحة تلقائيًا
+      fields.forEach((f, i) => {
+        if (f.type !== 'select' || !f.key || f.key.indexOf('role') < 0) return;
+        const el = $('#mp' + i); if (!el) return;
+        el.onchange = () => {
+          const base = defaultPerms(el.value);
+          $$('input[data-perm]').forEach(c => c.checked = !!base[c.dataset.perm]);
+        };
+      });
+      $('#mpOk').onclick = () => {
+        const out = {}; fields.forEach((f, i) => { const el = $('#mp' + i);
+          if (f.type === 'perms') { const o = {}; $$('input[data-perm]').forEach(c => o[c.dataset.perm] = c.checked); out[f.key] = o; }
+          else out[f.key] = f.type === 'checkbox' ? el.checked : el.value; });
+        Modal.close(); res(out);
+      };
+      $('#mpNo').onclick = () => { Modal.close(); res(null); };
+    });
+  }
+};
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') Modal.close(); });
+
+/* ------------------------------ الأصوات والاهتزاز ------------------------------ */
+const Audio2 = {
+  ctx: null,
+  beep(freq = 880, dur = 0.08, type = 'sine', vol = 0.07) {
+    try {
+      if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.value = vol;
+      o.connect(g); g.connect(this.ctx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + dur);
+      o.stop(this.ctx.currentTime + dur);
+    } catch (e) { }
+  },
+  ok() { const s = DB.db.settings; if (s && s.sound === 0) return; this.beep(1180, 0.07, 'sine', 0.07); setTimeout(() => this.beep(1560, 0.07, 'sine', 0.055), 65); },
+  warn() { const s = DB.db.settings; if (s && s.sound === 0) return; this.beep(420, 0.14, 'square', 0.05); },
+  bad() { const s = DB.db.settings; if (s && s.sound === 0) return; this.beep(220, 0.22, 'sawtooth', 0.05); },
+  vibe(ms) { try { const s = DB.db.settings; if (s && s.vibe === 0) return; if (navigator.vibrate) navigator.vibrate(ms || 30); } catch (e) { } }
+};
+
+/* ============================ طبقة قاعدة البيانات ============================ */
+/* كل قراءة/كتابة تمر من هنا. لربط قاعدة بيانات لاحقًا:
+   - غيّر DB.engine إلى 'cloud'
+   - نفّذ Remote.* لاستدعاء الـ API بنفس أسماء الدوال
+   البيانات مُهيكلة أصلاً في "مجموعات" تشبه الجداول.
+*/
+const DB = {
+  KEY: 'smart_inv_db_v1',
+  db: null,
+  engine: 'local',
+  saveTimer: null,
+
+  fresh() {
+    return {
+      v: 2,
+      settings: { company: 'مؤسستي', dateFmt: 'ar', scanMode: 'continuous', burst: 2, sound: 1, vibe: 1, theme: 'dark', pass: 'admin123', notifySound: 1, notifyPopup: 1 },
+      centers: [], users: [], items: [], scans: [], queue: [], audit: [], sessions: [],
+      cfg: { url: 'https://pujnqbjhfbzeauliofpt.supabase.co', key: 'sb_publishable_Eb8z0LbYhpLP9VRhTb01xg_pKp15Pqb', pass: '' },
+      meta: { created: now() }
+    };
+  },
+
+  load() {
+    const raw = localStorage.getItem(this.KEY);
+    const d = safeJSON(raw, null);
+    if (d && d.v === 2) { this.db = Object.assign(this.fresh(), d); }
+    else { this.db = this.fresh(); this.seed(); }
+    return this.db;
+  },
+
+  seed() {
+    const cc1 = { id: 'cc_main', code: 'CC-001', name: 'المخزن الرئيسي', loc: 'الفرع الرئيسي', status: 'closed', openedAt: null, closedAt: null, created: now() };
+    const cc2 = { id: 'cc_2', code: 'CC-002', name: 'فرع المعادي', loc: 'المعادي', status: 'closed', openedAt: null, closedAt: null, created: now() };
+    const cc3 = { id: 'cc_3', code: 'CC-003', name: 'كاشير الشوبينج', loc: 'مول العرب', status: 'closed', openedAt: null, closedAt: null, created: now() };
+    this.db.centers = [cc1, cc2, cc3];
+    this.db.users = [
+      { id: 'u_admin', name: 'مدير النظام', username: 'admin', pass: 'admin123', role: 'admin', center: '', status: 'active', created: now(), lastLogin: null, mustChange: false, pin: '' },
+      { id: 'u_sup', name: 'محمود المشرف', username: 'mahmoud', pass: '1234', role: 'supervisor', center: 'cc_main', status: 'active', created: now(), lastLogin: null, mustChange: false },
+      { id: 'u_r1', name: 'أحمد القارئ', username: 'ahmed', pass: '1234', role: 'reader', center: 'cc_2', status: 'active', created: now(), lastLogin: null, mustChange: false },
+      { id: 'u_r2', name: 'سارة القارئة', username: 'sara', pass: '1234', role: 'reader', center: 'cc_2', status: 'active', created: now(), lastLogin: null, mustChange: false },
+      { id: 'u_rev', name: 'خالد المراجع', username: 'khaled', pass: '1234', role: 'reviewer', center: 'cc_main', status: 'stopped', created: now(), lastLogin: null, mustChange: false }
+    ];
+    const seedItems = [
+      ['حليب جهينة كامل 1 لتر', '6221032001234', 'علبة', 120],
+      ['أرز مصري فاخر 5 كجم', '6221032002340', 'كيس', 60],
+      ['زيت عباد الشمس 1.5 لتر', '6221032003456', 'زجاجة', 90],
+      ['سكر ناعم 1 كجم', '6221032004562', 'كيس', 200],
+      ['شاي العروسة 250 جرام', '6221032005678', 'علبة', 150],
+      ['مكرونة إيطاليانو 400 جرام', '6221032006784', 'كيس', 300],
+      ['صلصة طماطم 320 جرام', '6221032007890', 'علبة', 220],
+      ['جبنة بيضاء 500 جرام', '6221032008906', 'علبة', 80],
+      ['مسحوق غسيل 2.5 كجم', '6221032009012', 'كيس', 45],
+      ['صابون تواليت 120 جرام', '6221032010128', 'قطعة', 260],
+      ['مياه معدنية 1.5 لتر', '6221032011234', 'زجاجة', 400],
+      ['عصير برتقال 1 لتر', '6221032012340', 'كرتونة', 110],
+      ['تونة خفيفة 140 جرام', '6221032013456', 'علبة', 175],
+      ['عيدان أسنان 250', '6221032014562', 'علبة', 90],
+      ['مناديل ورقية 200', '6221032015678', 'باكو', 130],
+      ['مربي مشمش 450 جرام', '6221032016784', 'برطمان', 55],
+      ['كورن فليكس 375 جرام', '6221032017890', 'علبة', 70],
+      ['نسكافيه 200 جرام', '6221032018906', 'علبة', 85],
+      ['بسكويت شاي 3 كيس', '6221032019012', 'كيس', 240],
+      ['شيبسي 3 أكياس', '6221032020128', 'باكو', 320]
+    ];
+    this.db.items = seedItems.map(([n, b, u, e], i) => ({ id: uid('it'), name: n, barcode: b, unit: u, expect: e, center: i % 3 === 0 ? 'cc_main' : 'cc_2', cat: ['ألبان', 'بقالة', 'زيوت', 'بقالة', 'مشروبات', 'بقالة', 'معلبات', 'ألبان', 'منظفات', 'نظافة', 'مشروبات', 'مشروبات', 'معلبات', 'نظافة', 'نظافة', 'معلبات', 'بقالة', 'مشروبات', 'بسكويت', 'سناكس'][i], created: now() }));
+    // بعض المسحات لتظهر التقارير
+    this.db.items.slice(0, 7).forEach((it, i) => {
+      const q = Math.max(0, Math.min(6, Math.round(it.expect * 0.35)));
+      for (let k = 0; k < q; k++) {
+        this.db.scans.push({ id: uid('s'), itemId: it.id, center: it.center, user: i % 2 ? 'u_r1' : 'u_r2', userTxt: i % 2 ? 'أحمد القارئ' : 'سارة القارئة', qty: 1, mode: 'add', ts: now() - (i * 900000) - k * 3000, synced: 0 });
+      }
+    });
+    this.saveNow();
+  },
+
+  save() { clearTimeout(this.saveTimer); this.saveTimer = setTimeout(() => this.saveNow(), 120); },
+  saveNow() {
+    try {
+      localStorage.setItem(this.KEY, JSON.stringify(this.db));
+    } catch (e) { Toast.bad('مساحة التخزين امتلأت — يُفضل تصدير نسخة احتياطية'); }
+  },
+
+  /* ---------- getters ---------- */
+  centers() { return this.db.centers; },
+  center(id) { return this.db.centers.find(c => c.id === id) || null; },
+  users() { return this.db.users; },
+  user(id) { return this.db.users.find(u => u.id === id) || null; },
+  itemsOf(ccId) { return this.db.items.filter(i => !ccId || i.center === ccId); },
+  itemByBarcode(bc, ccId) {
+    const b = String(bc || '').trim();
+    let it = this.db.items.find(i => i.barcode === b && (!ccId || i.center === ccId));
+    if (!it) it = this.db.items.find(i => i.barcode === b);
+    return it || null;
+  },
+  item(id) { return this.db.items.find(i => i.id === id) || null; },
+  scansOf(center, itemId) { return this.db.scans.filter(s => (!center || s.center === center) && (!itemId || s.itemId === itemId)); },
+  qtyOf(center, itemId) { return this.db.scans.reduce((a, s) => (s.center === center && s.itemId === itemId ? a + num(s.qty) : a), 0); },
+  qtyTotal(itemId) { return this.db.scans.reduce((a, s) => (s.itemId === itemId ? a + num(s.qty) : a), 0); },
+  userCount(userId, center) { return this.db.scans.filter(s => s.user === userId && (!center || s.center === center)).length; },
+
+  /* ---------- mutations ---------- */
+  addScan(center, itemId, qty, mode) {
+    const u = Session.user; if (!u) return null;
+    const rec = { id: uid('s'), itemId, center, user: u.id, userTxt: u.name, qty: num(qty), mode: mode || 'add', ts: now(), synced: 0, dev: Session.dev };
+    this.db.scans.push(rec);
+    this.db.queue.push({ id: uid('q'), type: 'scan', payload: rec, ts: now(), st: 'pending' });
+    this.save();
+    return rec;
+  },
+  undoScan(scanId) {
+    const i = this.db.scans.findIndex(s => s.id === scanId);
+    if (i < 0) return false;
+    const [rec] = this.db.scans.splice(i, 1);
+    this.db.queue.push({ id: uid('q'), type: 'undo', payload: { id: rec.id }, ts: now(), st: 'pending' });
+    this.save(); return true;
+  },
+  setScanQty(center, itemId, userId, targetQty, userTxt) {
+    const cur = this.db.scans.filter(s => s.center === center && s.itemId === itemId && s.user === userId).reduce((a, s) => a + num(s.qty), 0);
+    const diff = num(targetQty) - cur;
+    if (!diff) return;
+    const rec = { id: uid('s'), itemId, center, user: userId, userTxt, qty: diff, mode: 'set', ts: now(), synced: 0, dev: Session.dev };
+    this.db.scans.push(rec);
+    this.db.queue.push({ id: uid('q'), type: 'scan', payload: rec, ts: now(), st: 'pending' });
+    this.save();
+  },
+  audit(evt, detail) {
+    this.db.audit.unshift({ id: uid('a'), ts: now(), user: Session.user ? Session.user.name : '—', evt, detail: detail || '', dev: Session.dev || '—' });
+    if (this.db.audit.length > 400) this.db.audit.length = 400;
+    this.save();
+  }
+};
+
+/* ============================ الجلسة والصلاحيات ============================ */
+const ROLES = {
+  admin: { label: 'مدير', ic: '👑', cls: 'vio', desc: 'تحكم كامل' },
+  supervisor: { label: 'مشرف', ic: '🛡️', cls: 'acc', desc: 'إدارة مراكزه' },
+  reader: { label: 'قارئ', ic: '📷', cls: 'ok', desc: 'مسح فقط' },
+  reviewer: { label: 'مراجع', ic: '🔎', cls: 'warn', desc: 'اطلاع وتقارير' }
+};
+/* ================= نظام الصلاحيات =================
+   كل مستخدم ليه صلاحيات مفصّلة (تتحدد من شاشة المستخدمين وتتحفظ في قاعدة البيانات).
+   لو المستخدم مالوش صلاحيات محفوظة، بياخد الافتراضي حسب دوره. */
+const PERM_LABELS = {
+  scan:          { t: 'المسح بالكاميرا', i: '📷' },
+  add_item:      { t: 'إضافة صنف', i: '➕' },
+  edit_item:     { t: 'تعديل صنف', i: '✏️' },
+  delete_item:   { t: 'حذف صنف', i: '🗑️' },
+  reports:       { t: 'التقارير والفروقات', i: '📈' },
+  centers:       { t: 'فتح/إغلاق المراكز', i: '🏢' },
+  users_manage:  { t: 'إدارة المستخدمين', i: '👤' },
+  reset_center:  { t: 'تصفير الجرد', i: '♻️' },
+  view_audit:    { t: 'سجل الحركات', i: '📜' },
+  settings:      { t: 'الإعدادات والمزامنة', i: '⚙️' }
+};
+const PERM_KEYS = Object.keys(PERM_LABELS);
+
+function defaultPerms(role) {
+  const p = {}; PERM_KEYS.forEach(k => p[k] = false);
+  if (role === 'admin') { PERM_KEYS.forEach(k => p[k] = true); }
+  else if (role === 'supervisor') { Object.assign(p, { scan: 1, add_item: 1, edit_item: 1, delete_item: 1, reports: 1, view_audit: 1 }); }
+  else if (role === 'reader') { Object.assign(p, { scan: 1 }); }
+  else if (role === 'reviewer') { Object.assign(p, { reports: 1, view_audit: 1 }); }
+  return p;
+}
+/* الصفحات المربوطة بصلاحية معينة */
+const PAGE_PERM = { dashboard: null, scan: 'scan', items: 'scan', reports: 'reports', centers: 'centers', users: 'users_manage', sync: 'settings', settings: 'settings' };
+
+const PERM = {
+  dashboard: ['admin', 'supervisor', 'reviewer', 'reader'],
+  scan: ['admin', 'supervisor', 'reader'],
+  items: ['admin', 'supervisor', 'reviewer'],
+  reports: ['admin', 'supervisor', 'reviewer'],
+  centers: ['admin'],
+  users: ['admin'],
+  sync: ['admin'],
+  settings: ['admin']
+};
+const PAGES = {
+  dashboard: { t: 'لوحة التحكم', i: '📊' },
+  scan: { t: 'المسح', i: '📷' },
+  items: { t: 'الأصناف', i: '📦' },
+  reports: { t: 'التقارير', i: '📈' },
+  centers: { t: 'المراكز', i: '🏢' },
+  users: { t: 'المستخدمون', i: '👤' },
+  sync: { t: 'المزامنة', i: '☁️' },
+  settings: { t: 'الإعدادات', i: '⚙️' }
+};
+
+const Session = {
+  KEY: 'smart_inv_session',
+  user: null,
+  token: '',
+  cloudUser: null,
+  dev: (function () {
+    let d = localStorage.getItem('smart_inv_dev');
+    if (!d) { d = 'DEV-' + hexId(4).toUpperCase(); localStorage.setItem('smart_inv_dev', d); }
+    return d;
+  })(),
+  /* هل يملك صلاحية معينة؟ */
+  hasPerm(key) {
+    if (!this.user) return false;
+    if (this.user.role === 'admin') return true;
+    const p = this.user.permissions && Object.keys(this.user.permissions).length
+      ? this.user.permissions : defaultPerms(this.user.role);
+    return !!p[key];
+  },
+  /* الصفحة مسموحة؟ (بتستخدم الصلاحيات التفصيلية) */
+  can(p) {
+    if (!this.user) return false;
+    const key = PAGE_PERM[p];
+    if (key === undefined || key === null) return true;
+    return this.hasPerm(key);
+  },
+  restore() {
+    const s = safeJSON(localStorage.getItem(this.KEY), null);
+    if (!s || !s.uid) return false;
+    // وضع السحابة: بيانات المستخدم محفوظة في الجلسة
+    if (s.cloud) {
+      const cfgs = syncCfg();
+      if (!cfgs.url) return false;
+      this.token = s.token || '';
+      this.cloudUser = s.user || null;
+      if (!this.cloudUser) return false;
+      this.user = Object.assign({}, s.user);
+      return true;
+    }
+    const u = DB.user(s.uid);
+    if (!u || u.status !== 'active') { localStorage.removeItem(this.KEY); return false; }
+    this.user = u; return true;
+  },
+  async login(username, pass) {
+    clearTimeout(this._t);
+    /* ⚠️ كل الحسابات في قاعدة البيانات — لا دخول أوفلاين أبدًا
+       (كان أي مستخدم جديد يتضاف محليًا بس ويترفض عند الدخول) */
+    if (true) {
+      const r = await Cloud.login(username, pass);
+      if (r && r.ok && r.cloud) {
+        this.token = r.token;
+        this.cloudUser = r.user;
+        this.user = Object.assign({}, r.user);
+        if (!this.user.permissions || !Object.keys(this.user.permissions).length) this.user.permissions = defaultPerms(this.user.role);
+        localStorage.setItem(this.KEY, JSON.stringify({ cloud: 1, token: r.token, user: r.user, ts: now(), dev: this.dev }));
+        return { ok: true, user: this.user, cloud: true };
+      }
+      return { ok: false, msg: (r && r.msg) || 'تعذّر الاتصال بالسيرفر' };
+    }
+    const un = norm(username);
+    const u = DB.db.users.find(x => norm(x.username) === un);
+    if (!u) return { ok: false, msg: 'اسم المستخدم غير موجود' };
+    if (u.pass !== String(pass)) return { ok: false, msg: 'كلمة المرور غير صحيحة' };
+    if (u.status !== 'active') return { ok: false, msg: 'هذا الحساب موقوف — تواصل مع المدير' };
+    u.lastLogin = now();
+    localStorage.setItem(this.KEY, JSON.stringify({ uid: u.id, ts: now(), dev: this.dev }));
+    this.user = u;
+    DB.audit('دخول', 'تم تسجيل الدخول');
+    DB.save();
+    return { ok: true, user: u };
+  },
+  logout(reason) {
+    if (this.user && !syncCfg().url) DB.audit('خروج', reason || 'خروج يدوي');
+    if (syncCfg().url && this.token) Cloud.logout(this.token);
+    localStorage.removeItem(this.KEY);
+    this.user = null; this.token = ''; this.cloudUser = null;
+  },
+  /* يتحقق أن الحساب لا يزال نشطًا (يُستدعى دوريًا) */
+  verify() {
+    if (!this.user) return false;
+    const u = DB.user(this.user.id);
+    if (!u || u.status !== 'active') { this.kick('تم إيقاف حسابك من الإدارة'); return false; }
+    this.user = u; return true;
+  },
+  kick(msg) {
+    try { Notify.stop(); } catch (e) { }
+    Audio2.bad();
+    this.logout(msg);
+    showLogin();
+    setTimeout(() => { const e = $('#lgErr'); e.textContent = msg; e.classList.remove('hide'); }, 60);
+  }
+};
+
+/* ============================ التنقل ============================ */
+const Nav = {
+  cur: 'dashboard',
+  build() {
+    const n = $('#nav'); n.innerHTML = '';
+    Object.keys(PAGES).forEach(k => {
+      if (!Session.can(k)) return;
+      const b = document.createElement('button');
+      b.dataset.p = k; b.innerHTML = `<span>${PAGES[k].i}</span> ${PAGES[k].t}`;
+      b.onclick = () => Nav.go(k);
+      n.appendChild(b);
+    });
+  },
+  go(k) {
+    if (!Session.can(k)) { Toast.bad('لا تملك صلاحية الوصول لهذه الصفحة'); return; }
+    this.cur = k;
+    $$('#nav button').forEach(b => b.classList.toggle('on', b.dataset.p === k));
+    $$('.page').forEach(p => p.classList.toggle('on', p.id === 'p-' + k));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    Render[k] && Render[k]();
+    if (k !== 'scan' && Scanner.stream) Scanner.stop();
+  }
+};
+
+/* ============================ الكاميرا والإسكانر ============================ */
+const Scanner = {
+  stream: null, video: null, detector: null, zxing: null, zxingReader: null, raf: null,
+  running: false, devices: [], devIdx: 0, torchOn: false, lastCode: '', lastTime: 0, lock: false,
+  cooldown: 1400,
+
+  async start() {
+    if (!Session.can('scan')) return Toast.bad('لا تملك صلاحية المسح');
+    const cc = curCenter();
+    if (!cc) return Toast.bad('لا يوجد مركز تكلفة مرتبط بحسابك');
+    if (cc.status !== 'open') return Toast.bad('الجرد مقفول لهذا المركز');
+
+    this.video = $('#video');
+    $('#camOff').classList.add('hide');
+    try {
+      if (!this.stream) {
+        const constraints = {
+          audio: false,
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 }, height: { ideal: 720 },
+            advanced: [{ focusMode: 'continuous' }]
+          }
+        };
+        this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+      }
+      this.video.srcObject = this.stream;
+      await this.video.play().catch(() => { });
+      this.running = true;
+      setCamState(true);
+      // اكتشاف الكاميرات
+      try {
+        const devs = await navigator.mediaDevices.enumerateDevices();
+        this.devices = devs.filter(d => d.kind === 'videoinput');
+        $('#camInfo').textContent = this.devices.length ? `${this.devices.length} كاميرا متاحة` : '';
+      } catch (e) { }
+      await this.setupDetector();
+      this.loop();
+      Audio2.beep(760, 0.06, 'sine', 0.05);
+    } catch (err) {
+      this.running = false;
+      setCamState(false);
+      $('#camOff').classList.remove('hide');
+      let m = 'تعذّر تشغيل الكاميرا';
+      if (err && /NotAllowed|Permission/i.test(err.name + err.message)) m = 'مرفوض الوصول للكاميرا — اسمح بالتصوير من إعدادات المتصفح';
+      else if (err && /NotFound|Overconstrained/i.test(err.name + err.message || '')) m = 'لا توجد كاميرا متاحة على هذا الجهاز';
+      else if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') m = 'الكاميرا تحتاج https — افتح الملف عبر سيرفر https أو localhost';
+      Toast.bad(m);
+      $('#camHint').textContent = m;
+    }
+  },
+
+  async setupDetector() {
+    // الأفضل: BarcodeDetector الأصلي (أسرع) ثم zxing كاحتياطي
+    try {
+      if ('BarcodeDetector' in window) {
+        const supported = await window.BarcodeDetector.getSupportedFormats();
+        this.detector = new window.BarcodeDetector({ formats: supported.filter(f => /ean|code_128|code_39|upc|qr|itf|codabar|code_93|data_matrix|pdf417/i.test(f)) });
+        $('#camInfo').textContent = 'محرك المسح: أصلي ⚡';
+        return;
+      }
+    } catch (e) { }
+    try {
+      if (window.ZXing) {
+        this.zxingReader = new window.ZXing.BrowserMultiFormatReader();
+        $('#camInfo').textContent = 'محرك المسح: ZXing 🧩';
+        return;
+      }
+    } catch (e) { }
+    $('#camInfo').textContent = 'محرك المسح: احتياطي';
+  },
+
+  loop() {
+    if (!this.running) return;
+    const tick = async () => {
+      if (!this.running) return;
+      if (!this.lock) {
+        try {
+          let code = null;
+          if (this.detector && this.video && this.video.readyState >= 2) {
+            const codes = await this.detector.detect(this.video);
+            if (codes && codes.length) code = codes[0].rawValue;
+          } else if (!this.detector && this.zxing && this.video && this.video.readyState >= 2) {
+            const res = await this.decodeZXing();
+            if (res) code = res;
+          }
+          if (code) this.onCode(code);
+        } catch (e) { }
+      }
+      this.raf = requestAnimationFrame(() => setTimeout(tick, 90));
+    };
+    tick();
+  },
+
+  decodeZXing() {
+    return new Promise((res) => {
+      try {
+        if (!this.zxing) this.zxing = new window.ZXing.BrowserMultiFormatReader();
+        const c = document.createElement('canvas');
+        c.width = this.video.videoWidth; c.height = this.video.videoHeight;
+        if (!c.width) return res(null);
+        c.getContext('2d').drawImage(this.video, 0, 0);
+        const ps = this.zxing.decodeFromImageElement(c);
+        if (ps && ps.then) ps.then(r => res(r ? r.text : null)).catch(() => res(null));
+        else res(null);
+      } catch (e) { res(null); }
+    });
+  },
+
+  onCode(code) {
+    const c = String(code || '').trim();
+    if (!c) return;
+    const t = now();
+    if (c === this.lastCode && t - this.lastTime < this.cooldown) return;
+    this.lastCode = c; this.lastTime = t;
+    this.lock = true;
+    setTimeout(() => { this.lock = false; }, 520);
+    handleCode(c, true);
+  },
+
+  stop() {
+    this.running = false;
+    if (this.raf) cancelAnimationFrame(this.raf);
+    if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
+    if ($('#video')) $('#video').srcObject = null;
+    setCamState(false);
+    if ($('#camOff')) $('#camOff').classList.remove('hide');
+  },
+
+  async switchCam() {
+    if (!this.stream) return Toast.info('شغّل الكاميرا أولاً');
+    try {
+      const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+      if (devs.length < 2) return Toast.info('لا توجد كاميرا أخرى');
+      this.devIdx = (this.devIdx + 1) % devs.length;
+      this.stream.getTracks().forEach(t => t.stop());
+      this.stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: devs[this.devIdx].deviceId } }, audio: false });
+      this.video.srcObject = this.stream; await this.video.play().catch(() => { });
+      Toast.ok('تم تبديل الكاميرا');
+    } catch (e) { Toast.bad('تعذّر تبديل الكاميرا'); }
+  },
+
+  async torch() {
+    if (!this.stream) return Toast.info('شغّل الكاميرا أولاً');
+    const track = this.stream.getVideoTracks()[0];
+    try {
+      const caps = track.getCapabilities ? track.getCapabilities() : {};
+      if (!caps.torch) return Toast.warn('الكاميرا لا تدعم الفلاش');
+      this.torchOn = !this.torchOn;
+      await track.applyConstraints({ advanced: [{ torch: this.torchOn }] });
+      Toast.ok(this.torchOn ? 'الفلاش مفتوح' : 'الفلاش مغلول');
+    } catch (e) { Toast.warn('تعذّر التحكم في الفلاش'); }
+  }
+};
+
+function setCamState(on) {
+  const c = $('#camState');
+  if (!c) return;
+  c.className = 'chip ' + (on ? 'ok' : 'bad');
+  c.innerHTML = `<span class="dot ${on ? '' : 'off'}"></span> ${on ? 'تعمل' : 'مغلقة'}`;
+  $('#camHint').textContent = on ? 'ثبّت الباركود داخل الإطار' : 'الكاميرا متوقفة';
+  $('#btnCam').textContent = on ? '⏹️ إيقاف الكاميرا' : '📷 تشغيل الكاميرا';
+}
+
+/* ============================ منطق المسح ============================ */
+let lastScanRec = null;
+const ScanState = { curItem: null, burstCode: null, burstCount: 0, burstTimer: null };
+
+/* مركز المستخدم:
+   - المدير: لو محدد له مركز صريح يرجع له، وإلا null (يعني كل المراكز) — قبل كده كان بيفرض أول مركز
+     فكانت الأصناف الجديدة تتحفظ على مركز ويظهر له مركز تاني ويقول «الصنف مش موجود». */
+function curCenter() {
+  const u = Session.user; if (!u) return null;
+  return DB.center(u.center) || null;
+}
+
+/* هل المستخدم شايف كل المراكز؟ */
+function allCenters() {
+  return !!(Session.user && Session.user.role === 'admin' && !DB.center(Session.user.center));
+}
+
+function handleCode(code, fromCam) {
+  const c = String(code || '').trim();
+  if (!c) return;
+  const cc = curCenter();
+  if (!cc) return Toast.bad('لا يوجد مركز تكلفة مرتبط بحسابك');
+  if (cc.status !== 'open') { Audio2.bad(); return Toast.bad('الجرد مقفول لهذا المركز'); }
+
+  if (cloudOn() && Session.token) return cloudHandleCode(c);
+  let it = DB.itemByBarcode(c, cc.id);
+  if (!it) {
+    Audio2.warn(); Audio2.vibe(70);
+    Scanner.lock = true; setTimeout(() => Scanner.lock = false, 900);
+    return promptNewItem(c, cc);
+  }
+
+  // تجميع مسحات متتالية لنفس الكود (لمنع الاهتزاز/التكرار الخاطئ)
+  const mode = DB.db.settings.scanMode === 'confirm' ? 'confirm' : 'continuous';
+  if (mode === 'confirm' && fromCam) {
+    ScanState.curItem = it;
+    renderProdCard(it, null, true);
+    Audio2.ok(); Audio2.vibe(20);
+    return;
+  }
+
+  const rec = DB.addScan(cc.id, it.id, 1, 'add');
+  lastScanRec = rec;
+  ScanState.curItem = it;
+  Audio2.ok(); Audio2.vibe(22);
+  flashScan();
+  renderProdCard(it, rec, false);
+  Render.feed();
+  updateProg();
+  if (Nav.cur === 'items') Render.items();
+  if (Nav.cur === 'reports') Render.reports();
+}
+
+function flashScan() {
+  const sl = $('#scanline');
+  if (!sl) return;
+  sl.style.animation = 'none';
+  sl.style.background = 'linear-gradient(90deg,transparent,#34d399,#38bdf8,#34d399,transparent)';
+  sl.style.opacity = '1';
+  setTimeout(() => { sl.style.animation = ''; sl.style.background = ''; }, 320);
+}
+
+async function promptNewItem(code, cc) {
+  if (!Session.hasPerm('add_item')) { Audio2.bad(); return Toast.bad(NO_PERM_MSG); }
+  const r = await Modal.prompt('منتج غير مسجل 🆕', [
+    { key: 'name', label: 'اسم الصنف', ph: 'مثال: بسكويت شاي 200 جرام', value: '' },
+    { key: 'barcode', label: 'الباركود', value: code, dir: 'ltr' },
+    { key: 'unit', label: 'الوحدة', value: 'قطعة' },
+    { key: 'expect', label: 'الكمية الدفترية (المطلوبة)', type: 'number', value: 0 }
+  ], 'إضافة ومسح');
+  if (!r || !r.name) return;
+  const it = { id: uid('it'), name: r.name.trim(), barcode: (r.barcode || code).trim(), unit: r.unit || 'قطعة', expect: num(r.expect), center: cc.id, cat: 'جديد', created: now() };
+  DB.db.items.push(it);
+  DB.audit('صنف جديد', `${it.name} — ${it.barcode}`);
+  DB.save();
+  handleCode(it.barcode, false);
+  Toast.ok('تم إضافة الصنف ومسحه');
+}
+
+
+/* مسح عبر قاعدة البيانات (أونلاين) — يتحقق من المركز والصلاحية في السيرفر */
+async function cloudHandleCode(code) {
+  const cc = curCenter();
+  if (!cc || cc.status !== 'open') { Audio2.bad(); return Toast.bad('الجرد مقفول لهذا المركز'); }
+  const qty = num(checkNum()) || 1;
+  const out = await Cloud.scan(code, qty, cc.id);
+  if (!out || !out.ok) {
+    if (out && out.code === 'not_found') {
+    Audio2.warn(); Audio2.vibe(70); Scanner.lock = true; setTimeout(() => Scanner.lock = false, 900);
+    // منتج غير مسجل: بنطلّع نافذة العدد الأول (باسم مبدئي) وبعدها نطلب الاسم ونضيفه
+    return QtySheet.open({ id: '', name: 'منتج جديد — غير مسجل', barcode: code, unit: 'قطعة', expect: 0 }, code, 'new');
+  }
+    Audio2.bad();
+    const m = (out && out.msg) || '';
+    if (/مقفول/.test(m)) { Toast.bad('الجرد مقفول لهذا المركز'); if (Nav.cur === 'scan') Render.scanPage(); }
+    else Toast.bad(m || 'تعذّر تنفيذ المسح');
+    return;
+  }
+  const it = out.item;
+  const item = { id: it.id, name: it.name, barcode: it.barcode, unit: it.unit, expect: num(it.expected), center: cc.id };
+  const idx = DB.db.items.findIndex(x => x.id === item.id);
+  if (idx >= 0) DB.db.items[idx] = item; else DB.db.items.push(item);
+  // تحديث الإجمالي المحلي
+  const row = { id: out.scanId, itemId: it.id, center: cc.id, user: Session.user.id, userTxt: Session.user.name, qty: (out.qty != null ? num(out.qty) : qty), mode: 'add', ts: now(), synced: 1 };
+  const qb = $('#qtyBox'); if (qb) qb.value = '1';
+  DB.db.scans.push(row);
+  lastScanRec = row; ScanState.curItem = item;
+  Audio2.ok(); Audio2.vibe(22); flashScan();
+  renderProdCard(item, null, false);
+  Render.feed(); updateProg();
+  if (Nav.cur === 'items') Render.items();
+  if (Nav.cur === 'reports') Render.reports();
+}
+
+/* تحديث فوري من قاعدة البيانات (بدون ما المستخدم يعمل تحديث للصفحة) */
+async function refreshCloud(silent) {
+  try {
+    const snap = await Cloud.snapshot();
+    if (snap && snap.ok) {
+      applyCloudSnapshot(snap);
+      Render.nav();
+      if (Nav.cur === 'dashboard') Render.dashboard();
+      if (Nav.cur === 'items') Render.items();
+      if (Nav.cur === 'reports') Render.reports();
+      if (Nav.cur === 'centers') Render.centers();
+      if (Nav.cur === 'users') Render.users();
+      if (Nav.cur === 'scan') { Render.feed(); updateProg(); }
+      return true;
+    }
+  } catch (e) { console.warn('refresh', e); }
+  if (!silent) Toast.bad('تعذّر تحديث البيانات من السيرفر');
+  return false;
+}
+
+const NO_PERM_MSG = 'لا تملك صلاحية إضافة الأصناف — كلّم مدير النظام لتفعيلها لحسابك';
+
+async function promptNewItemCloud(code, qty, mode) {
+  const cc = curCenter();
+  if (!Session.hasPerm('add_item')) { Audio2.bad(); return Toast.bad(NO_PERM_MSG); }
+  const r = await Modal.prompt('منتج غير مسجل 🆕 — اكتب اسمه', [
+    { key: 'name', label: 'اسم الصنف', ph: 'مثال: بسكويت شاي 200 جرام' },
+    { key: 'barcode', label: 'الباركود', value: code, dir: 'ltr' },
+    { key: 'unit', label: 'الوحدة', value: 'قطعة' },
+    { key: 'expect', label: 'الكمية الدفترية (المطلوبة)', type: 'number', value: 0 },
+    { key: 'qty', label: 'العدد الممسوح', type: 'number', value: num(qty) || 1 }
+  ], 'إضافة الصنف');
+  if (!r || !r.name) return;
+  const out = await Cloud.addItem({ p_name: r.name.trim(), p_barcode: (r.barcode || code).trim(), p_unit: r.unit || 'قطعة', p_expected: num(r.expect), p_center: cc ? cc.id : null });
+  if (!out || !out.ok) {
+    const m = (out && (out.msg || out.details)) || '';
+    if ((out && out.code === '42501') || /صلاحي/.test(m)) return Toast.bad(NO_PERM_MSG);
+    return Toast.bad(m || 'تعذّر إضافة الصنف');
+  }
+  const it = out.item;
+  const cent = it.center_id || (cc ? cc.id : null);
+  const local = { id: it.id, name: it.name, barcode: it.barcode, unit: it.unit, expect: num(it.expected_qty), center: cent, cat: '' };
+  const idx = DB.db.items.findIndex(x => x.id === local.id);
+  if (idx >= 0) DB.db.items[idx] = local; else DB.db.items.push(local);
+  // ✳️ كمية المسح الفعلية (بدل ما كانت تتسجل 1 دايمًا)
+  const sq = Math.max(1, num(r.qty) || 1);
+  const so = await Cloud.scan(it.barcode, sq, cent);
+  if (!so || !so.ok) {
+    Toast.warn('تم إضافة الصنف لكن الكمية لم تُسجّل — امسحه مرة أخرى');
+  } else {
+    const row = { id: so.scanId, itemId: it.id, center: cent, user: Session.user.id, userTxt: Session.user.name, qty: (so.qty != null ? num(so.qty) : sq), mode: 'add', ts: now(), synced: 1 };
+    DB.db.scans.push(row);
+    lastScanRec = row; ScanState.curItem = local;
+  }
+  DB.save();
+  // ✳️ تحديث فوري من السيرفر عشان الأصناف/التقارير تعرضه علطول
+  await refreshCloud(true);
+  Toast.ok('تم إضافة الصنف — حدد العدد الممسوح');
+  QtySheet.open(local, local.barcode, 'scan');
+  if (sq > 1) QtySheet.set(sq);
+  if (Nav.cur === 'scan') { Render.feed(); updateProg(); }
+  if (Nav.cur === 'items') Render.items();
+  if (Nav.cur === 'reports') Render.reports();
+  if (Nav.cur === 'dashboard') Render.dashboard();
+}
+
+/* ============ نافذة «كم العدد؟» بعد قراءة الباركود ============
+   كل مسح لأي منتج مسجل بيطلّع النافذة دي: تكتب العدد مرة واحدة (مثلاً 50)
+   وبعدها بيتسجل في الجرد مباشرة — بدل ما تمسح 50 مرة. */
+const QtySheet = {
+  cur: null, qty: 1, busy: false,
+  open(item, barcode, ctx) {
+    this.cur = item; this.ctx = ctx || 'scan'; this.busy = false;
+    this.qty = Math.max(1, num(checkNum()) || 1);
+    const sh = $('#qtySheet'); if (!sh) return;
+    $('#qsName').textContent = item.name || 'منتج غير مسجل';
+    $('#qsBarcode').textContent = barcode || item.barcode || '';
+    const cc = curCenter();
+    const total = cc && item.id ? DB.qtyOf(cc.id, item.id) : 0;
+    const mine = cc && item.id && Session.user ? DB.db.scans.filter(x => x.center === cc.id && x.itemId === item.id && x.user === Session.user.id).reduce((a, x) => a + num(x.qty), 0) : 0;
+    $('#qsInfo').innerHTML = (cc ? 'المركز: <b>' + esc(cc.name) + '</b>' : '') +
+      (item.id ? ' · الممسوح لك: <b>' + fmtQ(mine) + '</b> · إجمالي المركز: <b>' + fmtQ(total) + '</b> · الدفتري: <b>' + fmtQ(item.expect) + '</b>' : '');
+    this.set(this.qty);
+    sh.classList.add('on');
+    setTimeout(() => { const q = $('#qsQty'); if (q) { q.focus(); q.select(); } }, 150);
+    Audio2.ok();
+  },
+  set(v) { this.qty = Math.max(1, Math.round(num(v) || 1)); const q = $('#qsQty'); if (q) q.value = this.qty; },
+  close() { const sh = $('#qtySheet'); if (sh) sh.classList.remove('on'); this.cur = null; },
+  async submit() {
+    if (this.busy) return;
+    const it = this.cur; if (!it) return;
+    const cc = curCenter();
+    const q = Math.max(1, Math.round(num($('#qsQty').value) || 1));
+    if (!cc) return Toast.bad('لا يوجد مركز تكلفة مرتبط بحسابك');
+    if (cc.status !== 'open') return Toast.bad('الجرد مقفول لهذا المركز');
+    this.busy = true;
+    $('#qsOk').textContent = '⏳ جاري التسجيل...';
+    try {
+      if (!it.id) {  // منتج غير مسجل → طلب الاسم ثم الإضافة بالكمية المكتوبة
+        this.close();
+        return promptNewItemCloud(it.barcode, q, 'new');
+      }
+      const out = await Cloud.scan(it.barcode, q, cc.id);
+      if (!out || !out.ok) {
+        const m = (out && out.msg) || '';
+        if (/مقفول/.test(m)) { Toast.bad('الجرد مقفول لهذا المركز'); this.close(); if (Nav.cur === 'scan') Render.scanPage(); }
+        else Toast.bad(m || 'تعذّر تسجيل الكمية');
+        this.busy = false; $('#qsOk').textContent = '✅ تسجيل في الجرد';
+        return;
+      }
+      const row = { id: out.scanId, itemId: it.id, center: cc.id, user: Session.user.id, userTxt: Session.user.name, qty: (out.qty != null ? num(out.qty) : q), mode: 'add', ts: now(), synced: 1 };
+      DB.db.scans.push(row);
+      lastScanRec = row; ScanState.curItem = it;
+      DB.save();
+      this.close(); flashScan();
+      Toast.ok('تم تسجيل ' + fmtQ(q) + ' — ' + (it.name || ''));
+      renderProdCard(it, null, false);
+      Render.feed(); updateProg();
+      if (Nav.cur === 'items') Render.items();
+      if (Nav.cur === 'reports') Render.reports();
+      const qb = $('#qtyBox'); if (qb) qb.value = '1';
+    } catch (e) {
+      Toast.bad('تعذّر التسجيل: ' + e.message);
+    }
+    this.busy = false;
+    const ok = $('#qsOk'); if (ok) ok.textContent = '✅ تسجيل في الجرد';
+  }
+};
+
+/* ربط أزرار النافذة */
+(function bindQtySheet() {
+  const minus = $('#qsMinus'), plus = $('#qsPlus'), inp = $('#qsQty');
+  if (!minus) return;
+  minus.onclick = () => QtySheet.set(QtySheet.qty - 1);
+  plus.onclick = () => QtySheet.set(QtySheet.qty + 1);
+  inp.oninput = () => { QtySheet.qty = Math.max(1, Math.round(num(inp.value) || 1)); };
+  inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); QtySheet.submit(); } };
+  $$('#qtySheet .steppers button').forEach(b => b.onclick = () => QtySheet.set(QtySheet.qty + num(b.dataset.add)));
+  $('#qsOk').onclick = () => QtySheet.submit();
+  $('#qsCancel').onclick = () => QtySheet.close();
+  $('#qsClose').onclick = () => QtySheet.close();
+  $('#qtySheet').addEventListener('click', e => { if (e.target.id === 'qtySheet') QtySheet.close(); });
+})();
+
+function renderProdCard(it, rec, needConfirm) {
+  const cc = curCenter();
+  const total = DB.qtyOf(cc.id, it.id);
+  const mine = Session.user ? DB.db.scans.filter(s => s.center === cc.id && s.itemId === it.id && s.user === Session.user.id).reduce((a, s) => a + num(s.qty), 0) : 0;
+  const diff = total - it.expect;
+  const diffTxt = diff === 0 ? 'مطابق ✔' : diff > 0 ? `زيادة +${fmtQ(diff)}` : `نقص ${fmtQ(diff)}`;
+  const cls = diff === 0 ? 'ok' : diff > 0 ? 'warn' : 'bad';
+  $('#prodCard').innerHTML = `
+  <div class="prod glass">
+    <div class="ph">📦</div>
+    <div class="info">
+      <div class="nm">${esc(it.name)}</div>
+      <div class="meta">
+        <span class="chip acc">${esc(it.barcode)}</span>
+        <span class="chip">${esc(it.unit || 'قطعة')}</span>
+        <span class="chip ${cls}">${diffTxt}</span>
+        <span class="tiny muted">إجمالي ممسوح: ${fmtQ(total)} / الدفتري: ${fmtQ(it.expect)}</span>
+      </div>
+      <div class="qtyctl">
+        ${needConfirm ? `<button class="btn primary sm" id="confirmAdd">✅ تأكيد +1</button>` : ``}
+        <button class="btn sm" id="qtyMinus">−1</button>
+        <input id="qtyBox" type="number" value="1" min="1" inputmode="numeric">
+        <button class="btn sm" id="qtyPlus">+1</button>
+        <button class="btn good sm" id="qtySet">تعيين ${fmtQ(checkNum())}</button>
+        <span class="tiny muted">مسحاتك: ${fmtQ(mine)}</span>
+      </div>
+    </div>
+    <div style="text-align:center">
+      <div class="cnt" id="prodCnt">${fmtQ(total)}</div>
+      <div class="cntl">إجمالي الممسوح</div>
+    </div>
+  </div>`;
+  const box = $('#qtyBox');
+  if (!box) return;
+  const sync = () => { const b = $('#qtySet'); if (b) b.textContent = `تعيين ${fmtQ(num(box.value))}`; };
+  box.oninput = sync;
+  $('#qtyMinus').onclick = () => { box.value = Math.max(1, num(box.value) - 1); sync(); };
+  $('#qtyPlus').onclick = () => { box.value = num(box.value) + 1; sync(); };
+  $('#qtySet').onclick = async () => {
+    const q = num(box.value); if (q <= 0) return Toast.warn('اكتب كمية صحيحة');
+    if (cloudOn() && Session.token) {
+      const cur = DB.qtyOf(cc.id, it.id);
+      const diff = q - cur;
+      if (!diff) return Toast.info('هذه هي الكمية الحالية بالفعل');
+      const out = await Cloud.scan(it.barcode, diff, cc.id);
+      if (!out || !out.ok) return Toast.bad((out && out.msg) || 'تعذّر التحديث');
+      DB.db.scans.push({ id: out.scanId, itemId: it.id, center: cc.id, user: Session.user.id, userTxt: Session.user.name, qty: diff, mode: 'set', ts: now(), synced: 1 });
+      Audio2.ok(); flashScan(); renderProdCard(it, null, false); Render.feed(); updateProg();
+      return Toast.ok(`تم تعيين الكمية إلى ${fmtQ(q)}`);
+    }
+    DB.setScanQty(cc.id, it.id, Session.user.id, q, Session.user.name);
+    Audio2.ok(); flashScan();
+    renderProdCard(it, null, false); Render.feed(); updateProg();
+    Toast.ok(`تم تعيين الكمية إلى ${fmtQ(q)}`);
+  };
+  const ca = $('#confirmAdd');
+  if (ca) ca.onclick = () => { handleCode(it.barcode, false); };
+}
+
+function checkNum() { const b = $('#qtyBox'); return b ? num(b.value) : 1; }
+
+function updateProg() {
+  const cc = curCenter(); if (!cc) return;
+  const items = DB.itemsOf(cc.id);
+  const totalExpect = items.reduce((a, i) => a + num(i.expect), 0);
+  const totalScanned = items.reduce((a, i) => a + DB.qtyOf(cc.id, i.id), 0);
+  const pct = totalExpect ? Math.min(100, Math.round(totalScanned / totalExpect * 100)) : 0;
+  const cnt = DB.db.scans.filter(s => s.center === cc.id).length;
+  const el1 = $('#progLabel'); if (!el1) return;
+  el1.textContent = `${fmt(cnt)} عملية مسح · ${fmtQ(totalScanned)} من ${fmtQ(totalExpect)} وحدة`;
+  $('#progPct').textContent = pct + '%';
+  $('#progBar').style.width = pct + '%';
+}
+
+/* ============================ الطبقة السحابية (جاهزة) ============================ */
+const Remote = {
+  configured() { return !!(DB.db.cfg.url && DB.db.cfg.key); },
+  async ping() {
+    if (!this.configured()) throw new Error('الإعدادات غير مكتملة');
+    const r = await fetch(DB.db.cfg.url.replace(/\/$/, '') + '/health', { headers: { 'x-company': DB.db.cfg.key } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json().catch(() => ({ ok: true }));
+  },
+  async pushBatch(rows) {
+    if (!this.configured()) throw new Error('غير مهيأ');
+    const r = await fetch(DB.db.cfg.url.replace(/\/$/, '') + '/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-company': DB.db.cfg.key },
+      body: JSON.stringify({ device: Session.dev, items: rows })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json().catch(() => ({ ok: true }));
+  }
+};
+
+
+/* ============================ طبقة السحابة (Supabase) ============================ */
+/* تعمل بطريقتين:
+   1) عبر سيرفر API  (مفتاح publishable فقط — الأكثر أمانًا)
+   2) مباشر على Supabase (مفتاح publishable + دوال app_* فقط، بدون وصول للجداول)
+*/
+/* ------------------------------------------------------------------
+   إعداد قاعدة البيانات — مدفون داخل الكود (مش ظاهر في أي شاشة)
+   ملاحظة: المفتاح ده هو publishable/anon — مخصص للاستخدام من المتصفح،
+   ومفيش أي وصول مباشر للجداول: كل شيء عبر دوال app_* المحمية.
+------------------------------------------------------------------ */
+const DB_CFG = (function () {
+  try {
+    const DEF_URL = 'https://pujnqbjhfbzeauliofpt.supabase.co';
+    const _k = ['sb_', 'publish', 'able_', 'Eb8z0LbY', 'hpLP9VRh', 'Tb01xg_', 'pKp15Pqb'];
+    let url = DEF_URL;
+    try { const ov = localStorage.getItem('smartinv.cfg.url'); if (ov) url = ov; } catch (e) { }
+    return { url: url, defUrl: DEF_URL, key: _k.join(''), pass: '' };
+  } catch (e) { return { url: '', defUrl: '', key: '', pass: '' }; }
+})();
+
+function syncCfg() {
+  const c = DB.db && DB.db.cfg;
+  const local = !!(c && c.url);   // اتصال محلي (اختياري) لسيرفر API خاص — نادر
+  if (local) return { url: (c.url || '').trim().replace(/\/$/, ''), key: (c.key || '').trim() };
+  return { url: DB_CFG.url, key: DB_CFG.key };
+}
+/* الوضع السحابي مفعّل دائمًا (مفيش أوفلاين) — كل الحسابات على Supabase */
+function cloudOn() { return true; }
+function isSupabase(url) { return /supabase\.co/i.test(url); }
+
+const Cloud = {
+  /* اسم الدالة داخل public: inv_app_login */
+  pubName(fn) { return 'inv_' + fn; },
+
+  async call(fn, args) {
+    const { url, key } = syncCfg();
+    if (!url) throw new Error('لم يتم إعداد رابط قاعدة البيانات');
+    if (!isSupabase(url)) {
+      // بوابة API قديمة (اختياري)
+      const map = { app_login: '/api/login', app_me: '/api/me', app_logout: '/api/logout',
+        app_snapshot: '/api/snapshot', app_scan: '/api/scan', app_add_item: '/api/item', app_scan_stats: '/api/stats' };
+      const r0 = await fetch(url + (map[fn] || '/api/' + fn.replace(/^app_/, '').replace(/_/g, '-')),
+        { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({}, args, { token: Session.token })) });
+      const t0 = await r0.text(); let d0 = null; try { d0 = t0 ? JSON.parse(t0) : null; } catch (e) { d0 = { ok: false, msg: t0 }; }
+      if (!r0.ok) throw new Error((d0 && (d0.message || d0.msg)) || ('HTTP ' + r0.status));
+      return d0;
+    }
+
+    /* محاولة 1: public.inv_app_login (المسار الرسمي) — محاولة 2: inv_api.app_login (احتياطي) */
+    const tries = [
+      { name: Cloud.pubName(fn), schema: null },
+      { name: fn, schema: 'inv_api' }
+    ];
+    let lastErr = null;
+    for (let i = 0; i < tries.length; i++) {
+      const t = tries[i];
+      const headers = { 'Content-Type': 'application/json', 'apikey': key, 'Authorization': 'Bearer ' + key };
+      if (t.schema) { headers['Accept-Profile'] = t.schema; headers['Content-Profile'] = t.schema; }
+      let r, txt, data;
+      try {
+        r = await fetch(url + '/rest/v1/rpc/' + t.name, { method: 'POST', headers: headers, body: JSON.stringify(args || {}) });
+        txt = await r.text();
+      } catch (e) {
+        throw new Error('تعذّر الوصول للسيرفر (شبكة/حجب) — ' + e.message);
+      }
+      try { data = txt ? JSON.parse(txt) : null; } catch (e) { data = { msg: txt }; }
+      if (r.ok) {
+        Cloud._ok = t.schema || 'public';
+        return data;
+      }
+      const code = data && data.code;
+      const msg = (data && (data.message || data.msg || data.hint || data.details)) || ('HTTP ' + r.status);
+      const err = new Error(msg); err.code = code; err.status = r.status; err.details = data && data.details;
+      lastErr = err;
+      // لو المشكلة في الدالة نفسها (مش موجودة/مخفي schema) جرّب المسار التاني
+      const notFound = ['PGRST202', 'PGRST106', 'PGRST205', '42883', '404'].indexOf(code) >= 0;
+      if (!notFound) throw err;
+    }
+    throw lastErr || new Error('تعذّر الاتصال بقاعدة البيانات');
+  },
+
+  /* استدعاء خام بدون حماية (للاستخدام الداخلي في تبديل المسارات) */
+  async _callRaw(fn, args) {
+    const { url, key } = syncCfg();
+    let fname = fn;
+    if (Cloud._schema === 'public') fname = 'inv_' + fn;
+    const headers = { 'Content-Type': 'application/json', 'apikey': key, 'Authorization': 'Bearer ' + key };
+    if (Cloud._schema === 'inv_api') { headers['Accept-Profile'] = 'inv_api'; headers['Content-Profile'] = 'inv_api'; }
+    const r = await fetch(url + '/rest/v1/rpc/' + fname, { method: 'POST', headers: headers, body: JSON.stringify(args || {}) });
+    const txt = await r.text();
+    let data = null; try { data = txt ? JSON.parse(txt) : null; } catch (e) { data = { ok: false, msg: txt }; }
+    if (!r.ok) { const m = (data && (data.message || data.msg)) || ('HTTP ' + r.status); const err = new Error(m); err.code = data && data.code; throw err; }
+    return data;
+  },
+
+  async login(username, password) {
+    try {
+      const out = await this.call('app_login', { p_username: username, p_password: password, p_device: Session.dev });
+      if (!out || !out.ok) return { ok: false, msg: (out && out.msg) || 'بيانات الدخول غير صحيحة' };
+      const u = out.user;
+      return { ok: true, token: out.token, cloud: true, user: {
+        id: u.id, name: u.name, username: u.username, role: u.role, status: u.status,
+        center: u.centerId || '', lastLogin: now(),
+        permissions: (u.permissions && Object.keys(u.permissions).length) ? u.permissions : defaultPerms(u.role)
+      } };
+    } catch (e) {
+      const c = e && e.code;      let hint = '';      if (c === 'PGRST202') hint = ' — الدوال (RPC) غير موجودة في قاعدة البيانات. شغّل ملف SQL من صفحة التشخيص.';      else if (c === '42501') hint = ' — صلاحيات ناقصة على الدوال في Supabase.';      else if (/Secret API key/i.test(e.message || '')) hint = ' — المفتاح المدسوس غير مدعوم؛ استبدله بمفتاح anon (JWT) من Settings → API.';      return { ok: false, msg: 'تعذّر الاتصال بقاعدة البيانات: ' + e.message + hint, detail: e.details || '' };
+    }
+  },
+
+  async me() {
+    try {
+      const out = await this.call('app_me', { p_token: Session.token });
+      if (!out || !out.ok) return { ok: false, code: out && out.code };
+      const u = out.user;
+      return { ok: true, user: { id: u.id, name: u.name, username: u.username, role: u.role, status: u.status, center: u.centerId || '', centerStatus: u.centerStatus,
+        permissions: (u.permissions && Object.keys(u.permissions).length) ? u.permissions : defaultPerms(u.role) } };
+    } catch (e) { return { ok: false, msg: e.message }; }
+  },
+
+  logout(token) { try { this.call('app_logout', { p_token: token || Session.token }); } catch (e) { } },
+
+  async snapshot() {
+    try {
+      const out = await this.call('app_snapshot', { p_token: Session.token });
+      if (out && out.ok) return out;
+    } catch (e) { console.warn('snapshot', e); }
+    return null;
+  },
+
+  async scan(barcode, qty, center) {
+    try {
+      return await this.call('app_scan', { p_token: Session.token, p_barcode: String(barcode), p_qty: num(qty) || 1, p_center: center || null });
+    } catch (e) { return { ok: false, msg: e.message }; }
+  },
+
+  async setCenterStatus(center, status) {
+    try { return await this.call('app_set_center_status', { p_token: Session.token, p_center: center, p_status: status }); }
+    catch (e) { return { ok: false, msg: e.message }; }
+  },
+
+  async setUserStatus(user, status) {
+    try { return await this.call('app_set_user_status', { p_token: Session.token, p_user: user, p_status: status }); }
+    catch (e) { return { ok: false, msg: e.message }; }
+  },
+
+  async saveUser(p) {
+    try { return await this.call('app_save_user', Object.assign({ p_token: Session.token }, p)); }
+    catch (e) { return { ok: false, msg: e.message }; }
+  },
+
+  async addItem(p) {
+    try { return await this.call('app_add_item', Object.assign({ p_token: Session.token }, p)); }
+    catch (e) { return { ok: false, msg: e.message, code: e.code }; }
+  },
+
+  async updateItem(p) {
+    try { return await this.call('app_update_item', Object.assign({ p_token: Session.token }, p)); }
+    catch (e) { return { ok: false, msg: e.message, code: e.code }; }
+  },
+
+  async deleteItem(id) {
+    try { return await this.call('app_delete_item', { p_token: Session.token, p_item: id }); }
+    catch (e) { return { ok: false, msg: e.message, code: e.code }; }
+  },
+
+  /* أحداث المسح — بتنادي دالة السيرفر وتعمل fallback من سجل الحركات لو الجدول لسه مش موجود */
+  async events(sinceISO) {
+    try { return await this.call('app_events', { p_token: Session.token, p_since: sinceISO || null }); }
+    catch (e) { return { ok: false, msg: e.message, code: e.code }; }
+  },
+
+  async assignOrphanItems(center) {
+    try { return await this.call('app_assign_orphan_items', { p_token: Session.token, p_center: center || null }); }
+    catch (e) { return { ok: false, msg: e.message, code: e.code }; }
+  },
+
+  async deleteUser(id) {
+    try { return await this.call('app_delete_user', { p_token: Session.token, p_user: id }); }
+    catch (e) { return { ok: false, msg: e.message, code: e.code }; }
+  },
+
+  async stats() {
+    try { return await this.call('app_scan_stats', { p_token: Session.token }); } catch (e) { return null; }
+  }
+};
+
+/* ---------- تحويل بيانات السحابة إلى شكل الشاشات ---------- */
+function applyCloudSnapshot(s) {
+  if (!s || !s.ok) return false;
+  const normC = (c) => ({ id: c.id, code: c.code, name: c.name, loc: c.loc || '', status: c.status, openedAt: c.openedAt ? Date.parse(c.openedAt) : null, closedAt: c.closedAt ? Date.parse(c.closedAt) : null });
+  const centers = (s.centers || []).map(normC);
+  const items = (s.items || []).map(i => ({ id: i.id, name: i.name, barcode: i.barcode, unit: i.unit, expect: num(i.expect), center: i.center, cat: i.cat || '' }));
+  const users = (s.users || []).map(u => ({ id: u.id, name: u.name, username: u.username, role: u.role, status: u.status, center: u.center || '', lastLogin: u.lastLogin ? Date.parse(u.lastLogin) : null, permissions: (u.permissions && Object.keys(u.permissions).length) ? u.permissions : defaultPerms(u.role) }));
+  // تحديث صلاحيات المستخدم الحالي فورًا من السيرفر
+  if (s.me && Session.user && s.me.id === Session.user.id) {
+    Session.user.permissions = (s.me.permissions && Object.keys(s.me.permissions).length) ? s.me.permissions : defaultPerms(Session.user.role);
+    Session.user.role = s.me.role || Session.user.role;
+    try { localStorage.setItem(Session.KEY, JSON.stringify({ cloud: 1, token: Session.token, user: Session.user, ts: now(), dev: Session.dev })); } catch (e) { }
+  }
+
+  // تحويل الإجماليات إلى "مسحات" وهمية حتى تعمل كل الشاشات كما هي.
+  // المفتاح بيقبل شكلين: {centerId: {itemId: qty}} (الأحدث) أو {itemId: qty} (القديم).
+  const totals = s.totals || {};
+  const scans = [];
+  const pushAgg = (centerId, itemId, q) => {
+    scans.push({ id: 'agg-' + centerId + '-' + itemId, itemId, center: centerId || (DB.item(itemId) || {}).center || '', user: '', userTxt: '', qty: num(q), mode: 'agg', ts: now(), agg: true, synced: 1 });
+  };
+  Object.keys(totals).forEach(k => {
+    const v = totals[k];
+    if (v && typeof v === 'object') {
+      Object.keys(v).forEach(itemId => pushAgg(k, itemId, v[itemId]));
+    } else {
+      pushAgg('', k, v);
+    }
+  });
+  DB.db.centers = centers;
+  DB.db.items = items;
+  DB.db.users = users.length ? users : DB.db.users;
+  DB.db.scans = scans;
+  DB.db.audit = (s.audit || []).map(a => ({ ts: a.ts ? Date.parse(a.ts) : now(), user: a.name, evt: a.evt, detail: a.detail, dev: a.dev }));
+  try { Notify.feed(s); } catch (e) { }
+  return true;
+}
+
+/* ---------- مزامنة دورية: تحديث الشاشات + كشف الإيقاف فورًا ---------- */
+const CloudSync = {
+  busy: false,
+  interval: 5000,
+  async tick() {
+    if (!cloudOn() || !Session.user || !Session.token) return;
+    if (this.busy) return;
+    this.busy = true;
+    try {
+      const me = await Cloud.me();
+      if (!me.ok) {
+        if (me.code === 'stopped' || me.code === 'no_session') {
+          Session.kick(me.code === 'stopped' ? 'تم إيقاف حسابك من الإدارة' : 'انتهت الجلسة — سجّل الدخول من جديد');
+        }
+        return;
+      }
+      // تحديث حالة المركز (إغلاق من الإدارة = توقف الكاميرا)
+      const cc = curCenter();
+      if (cc && me.user.centerStatus && me.user.centerStatus !== cc.status) {
+        cc.status = me.user.centerStatus;
+        if (cc.status !== 'open') { if (Scanner.running) Scanner.stop(); Toast.warn('تم إغلاق الجرد من الإدارة'); }
+        else Toast.ok('تم فتح الجرد');
+        if (Nav.cur === 'scan') Render.scanPage();
+      }
+      const snap = await Cloud.snapshot();
+      if (snap && snap.ok) {
+        applyCloudSnapshot(snap);
+        if (Nav.cur === 'scan') { Render.feed(); updateProg(); }
+        if (Nav.cur === 'items') Render.items();
+        if (Nav.cur === 'reports') Render.reports();
+        if (Nav.cur === 'centers') Render.centers();
+        if (Nav.cur === 'users') Render.users();
+        if (Nav.cur === 'dashboard') Render.dashboard();
+      }
+    } catch (e) { /* شبكة ضعيفة — نحاول لاحقًا */ }
+    finally { this.busy = false; }
+  }
+};
+
+/**
+ * ================= نظام التنبيهات اللحظية =================
+ * كل مسح بيتكتب في inv.audit على السيرفر باسم صاحبه، والمالك (أو أي حد عنده
+ * صلاحية «سجل الحركات») بيسمع صوت + يشوف عدّاد فوق الجرس بمجرد ما يمسح حد تاني.
+ * إعداداته: settings.notify_sound / settings.notify_popup في inv.settings.
+ */
+const Notify = {
+  since: null,        // آخر وقت شفناه
+  timer: null,
+
+  /* بدء السحب السريع للأحداث (للمالك / من عنده صلاحية السجل) */
+  start() {
+    if (this.timer) return;
+    if (!(Session.user && (Session.user.role === 'admin' || Session.hasPerm('view_audit')))) return;
+    const run = async () => {
+      if (!Session.token) return;
+      const res = await Cloud.events(this.since);
+      if (res && res.ok) {
+        const evs = res.events || [];
+        this.since = res.now || new Date().toISOString();
+        if (evs.length) {
+          const me = Session.user.name || '';
+          const mine = evs.filter(e => (e.name || '') !== me);
+          if (mine.length) {
+            const st = (DB.db.settings || {});
+            if (st.notifySound !== 0) { Audio2.ok(); setTimeout(() => Audio2.ok(), 250); }
+            Audio2.vibe(60);
+            this.bump(mine.length);
+            Toast.info('🔔 ' + (mine[0].name || 'مستخدم') + ' سجّل ' + fmtQ(mine[0].qty || 0) + ' من ' + (mine[0].item || 'صنف'));
+            if (st.notifyPopup !== 0) this.popup(mine.map(e => ({ name: e.name, detail: (e.item || '') + ' × ' + fmtQ(e.qty) + (e.center ? ' · ' + e.center : '') })));
+            if (Nav.cur === 'dashboard') Render.dashboard();
+            if (Nav.cur === 'reports') Render.reports();
+          }
+        }
+      }
+    };
+    run();
+    this.timer = setInterval(run, 3000);
+  },
+  stop() { if (this.timer) { clearInterval(this.timer); this.timer = null; } },
+
+  seenIds: {},     // بصمات التنبيهات اللي شفناها
+  first: true,     // أول تحميل: مايزعجش بأحداث قديمة
+  popupSeen: {},
+
+  key(a) { return (a.ts || '') + '|' + (a.name || '') + '|' + (a.detail || ''); },
+
+  /* بيتنادى بعد كل snapshot */
+  feed(snap) {
+    if (!Session.user) return;
+    const list = (snap && snap.audit) || [];
+    if (!list.length) return;
+    const me = Session.user.name || '';
+    const fresh = [];
+    list.slice().reverse().forEach(a => {          // الأقدم الأول
+      const k = this.key(a);
+      if (!this.seenIds[k]) { this.seenIds[k] = 1; fresh.push(a); }
+    });
+    if (this.first) { this.first = false; return; }  // أول تحميل لا يُنبّه
+    // مسحات الآخرين فقط (مش مسحاتي أنا)
+    const scans = fresh.filter(a => (a.name || '') !== me && /مسح|إضافة صنف|تعديل|حذف/.test(a.evt || ''));
+    if (!scans.length) return;
+    const st = (DB.db.settings || {});
+    if (st.notifySound !== 0) { Audio2.ok(); setTimeout(() => Audio2.ok(), 260); }
+    Audio2.vibe(60);
+    const last = scans[scans.length - 1];
+    Toast.info('🔔 ' + (last.name || 'مستخدم') + ': ' + (last.detail || last.evt || 'حركة جديدة'));
+    this.bump(scans.length);
+    if (st.notifyPopup === 1) this.popup(scans);
+  },
+
+  bump(n) {
+    const d = $('#bellDot'); if (!d) return;
+    const cur = parseInt(d.textContent || '0', 10) || 0;
+    d.textContent = String(cur + n);
+    d.classList.add('on');
+  },
+
+  clear() { const d = $('#bellDot'); if (d) { d.textContent = '0'; d.classList.remove('on'); } this.popupSeen = {}; },
+
+  /* نافذة عائمة للمالك (اختياري) */
+  popup(scans) {
+    if (Session.user.role !== 'admin' && !Session.hasPerm('view_audit')) return;
+    let el = document.getElementById('notifyStack');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'notifyStack';
+      el.style.cssText = 'position:fixed;top:70px;left:12px;z-index:125;display:flex;flex-direction:column;gap:8px;max-width:min(340px,86vw)';
+      document.body.appendChild(el);
+    }
+    scans.slice(-3).forEach((a, i) => {
+      const d = document.createElement('div');
+      d.style.cssText = 'background:linear-gradient(135deg,rgba(56,189,248,.22),rgba(52,211,153,.18));border:1px solid rgba(125,211,252,.5);border-radius:14px;padding:10px 12px;font-size:13px;font-weight:700;color:#e8f4ff;box-shadow:0 10px 26px rgba(0,0,0,.45)';
+      d.textContent = '🔔 ' + (a.name || '') + ' — ' + (a.detail || a.evt || '');
+      el.appendChild(d);
+      setTimeout(() => { d.style.opacity = '0'; d.style.transition = 'opacity .4s'; setTimeout(() => d.remove(), 420); }, 6000);
+    });
+  }
+};
+
+/* ============================ العرض ============================ */
+const Render = {
+  all() {
+    $('#meName').textContent = Session.user.name;
+    const r = ROLES[Session.user.role] || { label: '—', ic: '' };
+    $('#meAv').textContent = (Session.user.name || 'U').trim().charAt(0);
+    const cc = curCenter();
+    $('#meMeta').textContent = `${r.label}${cc ? ' · ' + cc.name : ' · كل المراكز'}`;
+    $('#roleChip').textContent = r.ic + ' ' + r.label;
+    Render.nav();
+    try { Notify.start(); } catch (e) { }
+    if (Session.can('dashboard')) Render.dashboard();
+    if (Session.can('scan')) Render.scanPage();
+    if (Session.can('items')) Render.items();
+    if (Session.can('reports')) Render.reports();
+    if (Session.can('centers')) Render.centers();
+    if (Session.can('users')) Render.users();
+    if (Session.can('sync')) Render.sync();
+    if (Session.can('settings')) Render.settings();
+  },
+  nav() {
+    Nav.build();
+    const first = Session.can('scan') ? 'scan' : (Session.can('dashboard') ? 'dashboard' : Object.keys(PAGES).find(k => Session.can(k)) || 'dashboard');
+    if (!Session.can(Nav.cur)) Nav.cur = first;
+    $$('#nav button').forEach(b => b.classList.toggle('on', b.dataset.p === Nav.cur));
+    $$('.page').forEach(p => p.classList.toggle('on', p.id === 'p-' + Nav.cur));
+  },
+
+  /* ---------- لوحة التحكم ---------- */
+  dashboard() {
+    const cc = curCenter();
+    const scope = allCenters() ? null : (cc ? cc.id : null);
+    let items = scope ? DB.itemsOf(scope) : DB.db.items;
+    const scanned = items.reduce((a, i) => a + DB.qtyOf(i.center, i.id), 0);
+    const expect = items.reduce((a, i) => a + num(i.expect), 0);
+    const missing = items.filter(i => DB.qtyOf(i.center, i.id) < num(i.expect)).length;
+    const over = items.filter(i => DB.qtyOf(i.center, i.id) > num(i.expect)).length;
+    const scans = DB.db.scans.filter(s => !scope || s.center === scope);
+    $('#dashName').textContent = Session.user.name.split(' ')[0];
+    $('#dashStatus').innerHTML = cc ? `<span class="chip ${cc.status === 'open' ? 'ok' : 'bad'}">${cc.status === 'open' ? '🟢 الجرد مفتوح' : '🔴 الجرد مقفول'}</span>` : `<span class="chip acc">👑 كل المراكز</span>`;
+    $('#dashStats').innerHTML = `
+      <div class="stat glass soft acc"><div class="k">📦 إجمالي الأصناف</div><div class="v">${fmt(items.length)}</div><div class="s">${scope ? 'في مركزك' : 'كل المراكز'}</div></div>
+      <div class="stat glass soft ok"><div class="k">✅ الوحدات الممسوحة</div><div class="v">${fmtQ(scanned)}</div><div class="s">من ${fmtQ(expect)} دفترية</div></div>
+      <div class="stat glass soft warn"><div class="k">📉 أصناف ناقصة</div><div class="v">${fmt(missing)}</div><div class="s">تحتاج جرد</div></div>
+      <div class="stat glass soft vio"><div class="k">📈 أصناف زيادة</div><div class="v">${fmt(over)}</div><div class="s">مسح فوق الدفتري</div></div>
+      <div class="stat glass soft pink"><div class="k">⚡ عمليات المسح</div><div class="v">${fmt(scans.length)}</div><div class="s">${scans.length ? 'آخر: ' + timeAgo(scans[scans.length - 1].ts) : 'لم يبدأ بعد'}</div></div>`;
+
+    const recent = DB.db.scans.slice().sort((a, b) => b.ts - a.ts).slice(0, 8);
+    $('#dashRecent').innerHTML = recent.length ? recent.map(s => {
+      const it = DB.item(s.itemId) || { name: 'صنف محذوف', barcode: '' };
+      return `<div class="fitem"><span style="font-size:18px">📦</span>
+        <div class="b"><b>${esc(it.name)}</b><span>${esc(s.userTxt || '')} · ${fmtDate(s.ts)}</span></div>
+        <span class="q">${num(s.qty) > 0 ? '+' + fmtQ(s.qty) : fmtQ(s.qty)}</span></div>`;
+    }).join('') : `<div class="empty"><span class="ic">🗒️</span>لا توجد عمليات بعد</div>`;
+
+    const acts = [];
+    if (Session.can('scan')) acts.push(['📷 فتح الكاميرا والبدء في المسح', () => Nav.go('scan')]);
+    if (Session.can('items')) acts.push(['📦 إدارة الأصناف', () => Nav.go('items')]);
+    if (Session.can('reports')) acts.push(['📈 تقرير الجرد', () => Nav.go('reports')]);
+    if (Session.can('centers')) acts.push(['🏢 فتح/إغلاق مراكز التكلفة', () => Nav.go('centers')]);
+    if (Session.can('sync')) acts.push(['☁️ إعدادات المزامنة', () => Nav.go('sync')]);
+    $('#dashActions').innerHTML = '';
+    acts.forEach(([t, f]) => { const b = document.createElement('button'); b.className = 'btn block'; b.style.justifyContent = 'flex-start'; b.textContent = t; b.onclick = f; $('#dashActions').appendChild(b); });
+  },
+
+  /* ---------- صفحة المسح ---------- */
+  scanPage() {
+    const cc = curCenter();
+    if (!cc) {
+      $('#scanLocked').style.display = 'block';
+      $('#scanBody').classList.add('hide');
+      $('#scanLockedMsg').textContent = 'حسابك غير مرتبط بمركز تكلفة. من فضلك تواصل مع المدير لتحديد مركزك.';
+      return;
+    }
+    const open = cc.status === 'open';
+    $('#scanLocked').style.display = open ? 'none' : 'block';
+    $('#scanBody').classList.toggle('hide', !open);
+    if (!open) $('#scanLockedMsg').textContent = `مركز «${cc.name}» جردُه مقفول حاليًا. تواصل مع المدير لفتح الجرد لتتمكن من المسح.`;
+    if (open && !Session.hasPerm('scan')) {
+      $('#scanLocked').style.display = 'block';
+      $('#scanBody').classList.add('hide');
+      $('#scanLockedMsg').textContent = 'حسابك لا يملك صلاحية المسح بالكاميرا — كلّم مدير النظام لتفعيلها.';
+      return;
+    }
+    if (open) {
+      Scanner.cooldown = 1400;
+      $$('#scanPlans button').forEach(b => b.classList.toggle('on', b.dataset.plan === DB.db.settings.scanMode));
+      updateProg(); Render.feed();
+      setTimeout(() => { const m = $('#manualCode'); if (m && window.innerWidth > 860) m.focus(); }, 300);
+    }
+  },
+
+  feed() {
+    const cc = curCenter(); if (!cc) return;
+    const mine = DB.db.scans.filter(s => s.user === Session.user.id).sort((a, b) => b.ts - a.ts).slice(0, 40);
+    const feed = $('#feed'); if (!feed) return;
+    $('#feedCount').textContent = fmt(mine.length);
+    feed.innerHTML = mine.length ? mine.map(s => {
+      const it = DB.item(s.itemId) || { name: 'صنف محذوف' };
+      return `<div class="fitem ${lastScanRec && s.id === lastScanRec.id ? 'new' : ''}">
+        <span class="q">${num(s.qty) > 0 ? '+' + fmtQ(s.qty) : fmtQ(s.qty)}</span>
+        <div class="b"><b>${esc(it.name)}</b><span>${timeAgo(s.ts)} · ${s.mode === 'set' ? 'تعيين' : 'مسح'}</span></div>
+        <button class="undo" data-undo="${s.id}" title="تراجع">↩️</button></div>`;
+    }).join('') : `<div class="empty"><span class="ic">📷</span>ابدأ المسح لتظهر عملياتك هنا</div>`;
+    $$('[data-undo]', feed).forEach(b => b.onclick = () => {
+      if (DB.undoScan(b.dataset.undo)) { Toast.ok('تم التراجع عن المسح'); Render.feed(); updateProg(); if (Nav.cur === 'items') Render.items(); }
+    });
+  },
+
+  /* ---------- الأصناف ---------- */
+  items() {
+    const cc = curCenter();
+    const scope = cc ? cc.id : null;
+    const adminAll = allCenters();
+    const q = norm($('#itemSearch').value || '');
+    // المدير بيشوف كل الأصناف (حتى اللي اتسجلت على مركز تاني) — والفلترة اختيارية
+    let items = adminAll ? DB.db.items.slice() : DB.db.items.filter(i => i.center === scope);
+    if (q) items = items.filter(i => norm(i.name).includes(q) || norm(i.barcode).includes(q));
+    const body = $('#itemsBody');
+    if (!body) return;
+    if (!items.length) { body.innerHTML = `<tr><td colspan="8"><div class="empty"><span class="ic">📦</span>لا توجد أصناف — أضف صنفًا جديدًا أو عدّل البحث</div></td></tr>`; return; }
+    body.innerHTML = items.slice(0, 300).map(i => {
+      const sc = DB.qtyOf(i.center, i.id);
+      const d = sc - num(i.expect);
+      const st = d === 0 ? '<span class="chip ok">مطابق</span>' : d > 0 ? '<span class="chip warn">زيادة</span>' : `<span class="chip bad">نقص ${fmtQ(Math.abs(d))}</span>`;
+      return `<tr>
+        <td><b>${esc(i.name)}</b><div class="tiny muted">${esc(i.cat || '')}</div></td>
+        <td class="tiny" style="font-family:monospace;direction:ltr;text-align:right">${esc(i.barcode)}</td>
+        <td class="tiny">${esc(i.unit || '')}</td>
+        <td class="num">${fmtQ(i.expect)}</td>
+        <td class="num" style="color:#7dd3fc;font-weight:800">${fmtQ(sc)}</td>
+        <td class="num" style="color:${d === 0 ? '#6ee7b7' : d > 0 ? '#fcd34d' : '#fca5a5'}">${d > 0 ? '+' : ''}${fmtQ(d)}</td>
+        <td>${st}</td>
+        <td><button class="btn sm" data-edit="${i.id}">تعديل</button></td>
+      </tr>`;
+    }).join('');
+    $$('[data-edit]', body).forEach(b => b.onclick = () => editItem(b.dataset.edit));
+  },
+
+  /* ---------- التقارير ---------- */
+  repFilter: 'all',
+  reports() {
+    const cc = curCenter();
+    const scope = cc ? cc.id : null;
+    const adminAll = allCenters();
+    let items = adminAll ? DB.db.items.slice() : DB.db.items.filter(i => !scope || i.center === scope);
+    const scanned = items.reduce((a, i) => a + DB.qtyOf(i.center, i.id), 0);
+    const expect = items.reduce((a, i) => a + num(i.expect), 0);
+    const miss = items.filter(i => DB.qtyOf(i.center, i.id) < num(i.expect)).length;
+    const over = items.filter(i => DB.qtyOf(i.center, i.id) > num(i.expect)).length;
+    const exact = items.filter(i => DB.qtyOf(i.center, i.id) === num(i.expect)).length;
+    const acc = expect ? Math.round(scanned / expect * 100) : 0;
+    $('#repStats').innerHTML = `
+      <div class="stat glass soft acc"><div class="k">دقة الجرد</div><div class="v">${acc}%</div><div class="s">${fmtQ(scanned)} / ${fmtQ(expect)}</div></div>
+      <div class="stat glass soft ok"><div class="k">مطابق</div><div class="v">${fmt(exact)}</div><div class="s">صنف</div></div>
+      <div class="stat glass soft bad"><div class="k">نواقص</div><div class="v">${fmt(miss)}</div><div class="s">تحتاج مراجعة</div></div>
+      <div class="stat glass soft warn"><div class="k">زيادة</div><div class="v">${fmt(over)}</div><div class="s">مسح فوق الدفتري</div></div>`;
+    const f = Render.repFilter;
+    let rows = items.map(i => ({ i, sc: DB.qtyOf(i.center, i.id), d: DB.qtyOf(i.center, i.id) - num(i.expect) }));
+    if (f === 'miss') rows = rows.filter(r => r.d < 0);
+    if (f === 'over') rows = rows.filter(r => r.d > 0);
+    if (f === 'exact') rows = rows.filter(r => r.d === 0);
+    rows.sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+    $('#repBody').innerHTML = rows.length ? rows.map(r => `<tr>
+      <td><b>${esc(r.i.name)}</b></td>
+      <td class="tiny" style="font-family:monospace;direction:ltr;text-align:right">${esc(r.i.barcode)}</td>
+      <td class="num">${fmtQ(r.i.expect)}</td><td class="num">${fmtQ(r.sc)}</td>
+      <td class="num" style="font-weight:800;color:${r.d === 0 ? '#6ee7b7' : r.d > 0 ? '#fcd34d' : '#fca5a5'}">${r.d > 0 ? '+' : ''}${fmtQ(r.d)}</td>
+      <td class="tiny muted">${esc((DB.center(r.i.center) || {}).name || '')}</td></tr>`).join('') : `<tr><td colspan="6"><div class="empty">لا توجد نتائج</div></td></tr>`;
+
+    // أداء القارئين
+    const byUser = {};
+    DB.db.scans.forEach(s => {
+      if (scope && s.center !== scope) return;
+      const k = s.user + '|' + s.center;
+      byUser[k] = byUser[k] || { user: s.userTxt, center: s.center, cnt: 0, items: new Set(), last: 0 };
+      byUser[k].cnt++; byUser[k].items.add(s.itemId); byUser[k].last = Math.max(byUser[k].last, s.ts);
+    });
+    const arr = Object.values(byUser).sort((a, b) => b.cnt - a.cnt);
+    $('#repUsers').innerHTML = arr.length ? arr.map(x => `<tr>
+      <td><b>${esc(x.user)}</b></td><td class="tiny">${esc((DB.center(x.center) || {}).name || '')}</td>
+      <td class="num">${fmt(x.cnt)}</td><td class="num">${fmt(x.items.size)}</td><td class="tiny muted">${timeAgo(x.last)}</td></tr>`).join('') : `<tr><td colspan="5"><div class="empty">لا توجد بيانات</div></td></tr>`;
+  },
+
+  /* ---------- المراكز ---------- */
+  centers() {
+    const g = $('#ccGrid'); if (!g) return;
+    const ccs = DB.centers();
+    if (!ccs.length) { g.innerHTML = `<div class="empty glass" style="grid-column:1/-1;padding:40px"><span class="ic">🏢</span>لا توجد مراكز — أضف أول مركز تكلفة</div>`; return; }
+    g.innerHTML = ccs.map(c => {
+      const items = DB.itemsOf(c.id);
+      const scanned = items.reduce((a, i) => a + DB.qtyOf(c.id, i.id), 0);
+      const expect = items.reduce((a, i) => a + num(i.expect), 0);
+      const users = DB.users().filter(u => u.center === c.id).length;
+      const pct = expect ? Math.min(100, Math.round(scanned / expect * 100)) : 0;
+      const open = c.status === 'open';
+      return `<div class="cc-card glass soft ${open ? 'open' : 'closed'}">
+        <div class="top">
+          <div><div class="nm">${esc(c.name)}</div><div class="code">${esc(c.code)} · ${esc(c.loc || '—')}</div></div>
+          <span class="chip ${open ? 'ok' : 'bad'}">${open ? '🟢 مفتوح' : '🔴 مقفول'}</span>
+        </div>
+        <div class="figs">
+          <div>أصناف<b>${fmt(items.length)}</b></div>
+          <div>ممسوح<b>${fmtQ(scanned)}</b></div>
+          <div>دفترية<b>${fmtQ(expect)}</b></div>
+          <div>مستخدمون<b>${fmt(users)}</b></div>
+        </div>
+        <div class="bar" style="margin-bottom:10px"><i style="width:${pct}%"></i></div>
+        <div class="tiny muted" style="margin-bottom:10px">
+          ${open ? `مفتوح منذ ${fmtDate(c.openedAt)}` : (c.closedAt ? `أُغلق ${fmtDate(c.closedAt)}` : 'لم يُفتح بعد')} · إنجاز ${pct}%
+        </div>
+        <div class="row" style="gap:8px">
+          <button class="btn sm ${open ? 'bad' : 'good'}" data-tog="${c.id}">${open ? '🔒 إغلاق الجرد' : '🔓 فتح الجرد'}</button>
+          <button class="btn sm" data-editcc="${c.id}">✏️ تعديل</button>
+          <button class="btn sm ghost" data-delcc="${c.id}">🗑️</button>
+        </div>
+      </div>`;
+    }).join('');
+    $$('[data-tog]', g).forEach(b => b.onclick = () => toggleCenter(b.dataset.tog));
+    $$('[data-editcc]', g).forEach(b => b.onclick = () => editCenter(b.dataset.editcc));
+    $$('[data-delcc]', g).forEach(b => b.onclick = () => delCenter(b.dataset.delcc));
+  },
+
+  /* ---------- المستخدمون ---------- */
+  userFilter: 'all',
+  users() {
+    const q = norm($('#userSearch').value || '');
+    const f = Render.userFilter;
+    let us = DB.users();
+    if (q) us = us.filter(u => norm(u.name).includes(q) || norm(u.username).includes(q));
+    if (f === 'active') us = us.filter(u => u.status === 'active');
+    if (f === 'stopped') us = us.filter(u => u.status !== 'active');
+    const el = $('#usersList'); if (!el) return;
+    if (!us.length) { el.innerHTML = `<div class="empty"><span class="ic">👤</span>لا يوجد مستخدمون مطابقون</div>`; return; }
+    el.innerHTML = us.map(u => {
+      const r = ROLES[u.role] || { label: u.role, ic: '', cls: '' };
+      const cc = DB.center(u.center);
+      const act = u.status === 'active';
+      const cnt = DB.userCount(u.id);
+      const up = (u.permissions && Object.keys(u.permissions).length) ? u.permissions : defaultPerms(u.role);
+      const badges = PERM_KEYS.filter(k => up[k]).slice(0, 5).map(k => `<span class="permBadge">${PERM_LABELS[k].i} ${PERM_LABELS[k].t}</span>`).join('');
+      return `<div class="user-row ${act ? '' : 'dis'}">
+        <div class="avatar" style="width:38px;height:38px;font-size:14px">${esc((u.name || 'U').charAt(0))}</div>
+        <div class="b"><b>${esc(u.name)} ${u.id === Session.user.id ? '<span class="tiny muted">(أنت)</span>' : ''}</b>
+          <span>@${esc(u.username)} · ${esc(r.ic)} ${esc(r.label)}${cc ? ' · ' + esc(cc.name) : ' · كل المراكز'} · ${fmt(cnt)} مسحة</span>
+          <div style="margin-top:4px">${badges || '<span class="tiny muted">بدون صلاحيات إضافية</span>'}</div>
+        </div>
+        <span class="chip ${act ? 'ok' : 'bad'}">${act ? 'نشط' : 'موقوف'}</span>
+        <span class="tiny muted" style="min-width:74px;text-align:center">${u.lastLogin ? timeAgo(u.lastLogin) : 'لم يدخل'}</span>
+        <div class="row" style="gap:6px">
+          <button class="btn sm" data-edituser="${u.id}">✏️</button>
+          <button class="btn sm ${act ? 'warn' : 'good'}" data-toggleuser="${u.id}" ${u.id === Session.user.id ? 'disabled title="لا يمكنك إيقاف نفسك"' : ''}>${act ? '⏸️ إيقاف' : '▶️ تفعيل'}</button>
+          <button class="btn sm ghost" data-deluser="${u.id}" title="حذف المستخدم" ${u.id === Session.user.id ? 'disabled' : ''}>🗑️</button>
+        </div>
+      </div>`;
+    }).join('');
+    $$('[data-edituser]', el).forEach(b => b.onclick = () => editUser(b.dataset.edituser));
+    $$('[data-toggleuser]', el).forEach(b => b.onclick = () => toggleUser(b.dataset.toggleuser));
+    $$('[data-deluser]', el).forEach(b => b.onclick = () => delUser(b.dataset.deluser));
+    // مصفوفة الصلاحيات
+    const rows = [
+      ['فتح شاشة المسح والكاميرا', 'scan'], ['إضافة صنف / تعديل بياناته', 'items'],
+      ['تقرير الجرد والفروقات', 'reports'], ['إنشاء مراكز التكلفة وفتح/إغلاق الجرد', 'centers'],
+      ['إدارة المستخدمين والإيقاف', 'users'], ['الإعدادات والمزامنة والنسخ', 'sync'],
+      ['لوحة التحكم والملخص', 'dashboard']
+    ];
+    $('#permMatrix').innerHTML = rows.map(([t, k]) => `<tr><td>${t}</td>${['admin', 'supervisor', 'reader', 'reviewer'].map(r => `<td>${PERM[k].includes(r) ? '<span style="color:#6ee7b7">✔</span>' : '<span class="muted">—</span>'}</td>`).join('')}</tr>`).join('');
+  },
+
+  /* ---------- المزامنة ---------- */
+  sync() {
+    const q = DB.db.queue;
+    $('#qPend').textContent = fmt(q.filter(x => x.st === 'pending').length);
+    $('#qDone').textContent = fmt(q.filter(x => x.st === 'done').length);
+    // حقول الإعداد اختفت — بنعرض نوع الاتصال والحالة بس
+    const st = $('#cfgState');
+    const cf2 = syncCfg();
+    if (cf2.url) { st.className = 'chip ok'; st.textContent = isSupabase(cf2.url) ? '☁️ Supabase — متصل' : '☁️ API — متصل'; }
+    else { st.className = 'chip'; st.textContent = '💾 أوفلاين — غير مهيأ'; }
+    const isAdm = !!(Session.user && Session.user.role === 'admin');
+    $$('.cfgAdmin').forEach(el => el.classList.toggle('cfgHide', !isAdm));
+    const inf = $('#cfgInfo');
+    if (inf) {
+      inf.innerHTML = cf2.url
+        ? `✅ <b>متصل بقاعدة البيانات</b> · ${esc(cf2.url)}<br>
+           <span class="tiny muted">الإعداد محفوظ جوّه الملف نفسه، ولا يمكن تغييره أو نسخه من أي شاشة.</span>`
+        : `💾 <b>وضع أوفلاين</b> — البيانات محفوظة على هذا الجهاز فقط.`;
+    }
+    // نموذج قاعدة البيانات
+    $('#schemaPre').textContent = SCHEMA;
+  },
+
+  /* ---------- الإعدادات ---------- */
+  settings() {
+    const s = DB.db.settings;
+    $('#stCompany').value = s.company || '';
+    $('#stPass').value = '';
+    $('#stDateFmt').value = s.dateFmt || 'ar';
+    $('#stScanMode').value = s.scanMode || 'continuous';
+    $('#stBurst').value = s.burst || 2;
+    $('#stSound').value = String(s.sound);
+    if ($('#stNotifySound')) $('#stNotifySound').value = String(s.notifySound === 0 ? 0 : 1);
+    if ($('#stNotifyPopup')) $('#stNotifyPopup').value = String(s.notifyPopup === 0 ? 0 : 1);
+    $('#stVibe').value = String(s.vibe);
+    $('#stTheme').value = s.theme || 'dark';
+    $('#auditBody').innerHTML = DB.db.audit.length ? DB.db.audit.slice(0, 60).map(a => `<tr>
+      <td class="tiny">${fmtDate(a.ts)}</td><td>${esc(a.user)}</td><td class="tiny">${esc(a.evt)} — ${esc(a.detail)}</td><td class="tiny muted">${esc(a.dev || '')}</td></tr>`).join('') : `<tr><td colspan="4"><div class="empty">لا توجد سجلات</div></td></tr>`;
+  }
+};
+
+/* ============================ إجراءات ============================ */
+async function toggleCenter(id) {
+  const c = DB.center(id); if (!c) return;
+  if (cloudOn() && Session.token) {
+    const target = c.status === 'open' ? 'closed' : 'open';
+    const out = await Cloud.setCenterStatus(id, target);
+    if (!out || !out.ok) return Toast.bad((out && out.msg) || 'تعذّر تنفيذ العملية');
+    c.status = target;
+    if (target === 'open') { c.openedAt = now(); c.closedAt = null; } else { c.closedAt = now(); }
+    DB.save(); Render.centers();
+    if (Session.user && Session.user.center === id) { Render.scanPage(); if (target !== 'open' && Scanner.stream) Scanner.stop(); }
+    const snap = await Cloud.snapshot(); if (snap && snap.ok) applyCloudSnapshot(snap);
+    Toast.ok(target === 'open' ? 'تم فتح الجرد — الأجهزة يمكنها المسح الآن' : 'تم إغلاق الجرد — كل الأجهزة توقفت عن المسح');
+    return;
+  }
+  const open = c.status === 'open';
+  DB.db.sessions = DB.db.sessions || [];
+  if (open) {
+    // إغلاق الجرد مع أخذ بصمة
+    const items = DB.itemsOf(id);
+    const snap = items.map(i => ({ itemId: i.id, barcode: i.barcode, name: i.name, expect: i.expect, scanned: DB.qtyOf(id, i.id) }));
+    c.status = 'closed'; c.closedAt = now();
+    c.snapshot = snap;
+    DB.audit('إغلاق جرد', `مركز ${c.name}`);
+  } else {
+    c.status = 'open'; c.openedAt = now(); c.closedAt = null;
+    DB.audit('فتح جرد', `مركز ${c.name}`);
+  }
+  DB.save();
+  Render.centers();
+  if (Session.user && Session.user.center === id) { Render.scanPage(); if (c.status !== 'open' && Scanner.stream) Scanner.stop(); }
+  Toast.ok(open ? 'تم إغلاق الجرد — كل الأجهزة توقفت عن المسح' : 'تم فتح الجرد — الأجهزة يمكنها المسح الآن');
+}
+
+async function editCenter(id) {
+  const c = DB.center(id); if (!c) return;
+  const r = await Modal.prompt('تعديل مركز التكلفة', [
+    { key: 'name', label: 'اسم المركز', value: c.name },
+    { key: 'code', label: 'الكود', value: c.code, dir: 'ltr' },
+    { key: 'loc', label: 'الموقع / الفرع', value: c.loc || '' }
+  ]);
+  if (!r || !r.name) return;
+  c.name = r.name.trim(); c.code = r.code.trim() || c.code; c.loc = r.loc.trim();
+  DB.save(); Render.centers(); Toast.ok('تم التعديل');
+}
+
+async function delCenter(id) {
+  const c = DB.center(id); if (!c) return;
+  const us = DB.users().filter(u => u.center === id).length;
+  const ok = await Modal.confirm('حذف المركز', `سيتم حذف «${esc(c.name)}»${us ? ` و${us} مستخدم مرتبط به` : ''}. حركاته ستبقى في التقارير. هل أنت متأكد؟`, 'حذف', true);
+  if (!ok) return;
+  DB.db.centers = DB.db.centers.filter(x => x.id !== id);
+  DB.db.users.forEach(u => { if (u.center === id) u.center = ''; });
+  DB.save(); Render.centers(); Render.users(); Toast.ok('تم الحذف');
+}
+
+async function addCenter() {
+  const r = await Modal.prompt('مركز تكلفة جديد', [
+    { key: 'name', label: 'اسم المركز', ph: 'مثال: فرع مدينة نصر' },
+    { key: 'code', label: 'الكود', ph: 'CC-004', dir: 'ltr' },
+    { key: 'loc', label: 'الموقع / الفرع', ph: 'اختياري' }
+  ], 'إنشاء');
+  if (!r || !r.name) return;
+  const c = { id: uid('cc'), code: r.code.trim() || 'CC-' + String(DB.centers().length + 1).padStart(3, '0'), name: r.name.trim(), loc: r.loc.trim(), status: 'closed', openedAt: null, closedAt: null, created: now() };
+  DB.db.centers.push(c);
+  DB.audit('مركز جديد', c.name); DB.save(); Render.centers(); Toast.ok('تم إنشاء المركز');
+}
+
+async function toggleUser(id) {
+  const u = DB.user(id); if (!u) return;
+  if (cloudOn() && Session.token) {
+    if (u.id === Session.user.id) return Toast.warn('لا يمكنك إيقاف حسابك');
+    const target = u.status === 'active' ? 'stopped' : 'active';
+    const out = await Cloud.setUserStatus(u.id, target);
+    if (!out || !out.ok) return Toast.bad((out && out.msg) || 'تعذّر تنفيذ العملية');
+    u.status = target; Render.users(); Render.dashboard && Render.dashboard();
+    Toast.ok(target === 'stopped' ? 'تم إيقاف المستخدم — سيخرج تلقائيًا من كل الأجهزة' : 'تم تفعيل المستخدم');
+    return;
+  }
+  if (u.id === Session.user.id) return Toast.warn('لا يمكنك إيقاف حسابك');
+  const wasActive = u.status === 'active';
+  u.status = wasActive ? 'stopped' : 'active';
+  u.stoppedAt = wasActive ? now() : null;
+  DB.audit(wasActive ? 'إيقاف مستخدم' : 'تفعيل مستخدم', `${u.name} (@${u.username})`);
+  DB.save();
+  Render.users();
+  Toast.ok(wasActive ? 'تم إيقاف المستخدم — سيخرج تلقائيًا من كل الأجهزة' : 'تم تفعيل المستخدم');
+  // إن كان هذا الجهاز هو نفسه المستخدم الموقوف
+  if (wasActive && localStorage.getItem(Session.KEY)) {
+    const s = safeJSON(localStorage.getItem(Session.KEY), null);
+    if (s && s.uid === u.id) Session.kick('تم إيقاف حسابك من الإدارة');
+  }
+}
+
+async function delUser(id) {
+  const u = DB.user(id); if (!u) return;
+  if (u.id === Session.user.id) return Toast.warn('لا يمكنك حذف حسابك');
+  if (!Session.hasPerm('users_manage')) return Toast.bad('لا تملك صلاحية إدارة المستخدمين');
+  const ok = await Modal.confirm('حذف المستخدم', `سيتم حذف «${esc(u.name)}» (@${esc(u.username)}) نهائيًا. مسحاته تبقى في السجلات. متأكد؟`, 'حذف', true);
+  if (!ok) return;
+  const out = await Cloud.deleteUser(u.id);
+  if (!out || !out.ok) {
+    const m = (out && (out.msg || out.details)) || '';
+    if ((out && out.code === '42501') || /صلاحي/.test(m)) return Toast.bad('لا تملك صلاحية إدارة المستخدمين');
+    return Toast.bad(m || 'تعذّر حذف المستخدم');
+  }
+  DB.db.users = DB.db.users.filter(x => x.id !== id);
+  DB.audit('حذف مستخدم', u.name);
+  DB.save(); Render.users(); Toast.ok('تم حذف المستخدم');
+}
+
+async function editUser(id) {
+  const u = DB.user(id); if (!u) return;
+  const centers = DB.centers();
+  const r = await Modal.prompt('تعديل المستخدم', [
+    { key: 'name', label: 'الاسم', value: u.name },
+    { key: 'username', label: 'اسم المستخدم', value: u.username, dir: 'ltr' },
+    { key: 'role', label: 'الدور', type: 'select', value: u.role, options: Object.keys(ROLES).map(k => ({ value: k, text: ROLES[k].ic + ' ' + ROLES[k].label })) },
+    { key: 'center', label: 'مركز التكلفة', type: 'select', value: u.center || '', options: [{ value: '', text: 'كل المراكز (بدون ربط)' }].concat(centers.map(c => ({ value: c.id, text: c.code + ' — ' + c.name }))) },
+    { key: 'pass', label: 'كلمة مرور جديدة (اختياري)', type: 'password', value: '' },
+    { key: 'perms', label: '🔐 صلاحيات المستخدم', type: 'perms', value: (u.permissions && Object.keys(u.permissions).length) ? u.permissions : defaultPerms(u.role) }
+  ]);
+  if (!r) return;
+  const dup = DB.users().find(x => x.id !== u.id && norm(x.username) === norm(r.username));
+  if (dup) return Toast.bad('اسم المستخدم مستخدم بالفعل');
+  if (r.pass && String(r.pass).length < 4) return Toast.bad('كلمة المرور قصيرة جدًا (4 أحرف على الأقل)');
+  const uname = r.username.trim().toLowerCase().replace(/\s+/g, '') || u.username;
+  /* ✅ التعديل بيتحفظ في قاعدة البيانات فعليًا */
+  Toast.info('جاري حفظ التعديل...');
+  const perms = r.role === 'admin' ? defaultPerms('admin') : (r.perms || defaultPerms(r.role));
+  const res = await Cloud.saveUser({ p_id: u.id, p_name: r.name.trim() || u.name, p_username: uname, p_password: (r.pass || null), p_role: r.role, p_center: r.center || null, p_status: u.status, p_permissions: perms });
+  if (!res || !res.ok) return Toast.bad('فشل حفظ التعديل: ' + ((res && res.msg) || 'خطأ غير معروف'));
+  u.name = r.name.trim() || u.name;
+  u.username = uname;
+  u.role = r.role;
+  u.center = r.center;
+  u.permissions = perms;
+  if (r.pass) u.pass = '';
+  DB.audit('تعديل مستخدم', u.name);
+  DB.save(); Render.users();
+  if (u.id === Session.user.id) { Session.user = u; Render.all(); }
+  Toast.ok('تم تحديث بيانات المستخدم');
+}
+
+async function addUser() {
+  const centers = DB.centers();
+  const r = await Modal.prompt('مستخدم جديد', [
+    { key: 'name', label: 'الاسم الكامل', ph: 'مثال: محمد علي' },
+    { key: 'username', label: 'اسم المستخدم (للدخول)', ph: 'mohamed', dir: 'ltr' },
+    { key: 'pass', label: 'كلمة المرور', ph: 'على الأقل 4 أحرف' },
+    { key: 'role', label: 'الدور', type: 'select', value: 'reader', options: Object.keys(ROLES).map(k => ({ value: k, text: ROLES[k].ic + ' ' + ROLES[k].label })) },
+    { key: 'center', label: 'مركز التكلفة', type: 'select', value: centers[0] ? centers[0].id : '', options: [{ value: '', text: 'كل المراكز' }].concat(centers.map(c => ({ value: c.id, text: c.code + ' — ' + c.name }))) },
+    { key: 'perms', label: '🔐 صلاحيات المستخدم', type: 'perms', value: defaultPerms('reader') }
+  ], 'إنشاء المستخدم');
+  if (!r || !r.name || !r.username) return;
+  const uname = r.username.trim().toLowerCase().replace(/\s+/g, '');
+  if (DB.users().some(x => norm(x.username) === norm(uname))) return Toast.bad('اسم المستخدم مستخدم بالفعل');
+  if (String(r.pass || '').length < 4) return Toast.bad('كلمة المرور قصيرة جدًا (4 أحرف على الأقل)');
+  /* ✅ الحفظ في قاعدة البيانات فعليًا — قبل كده كان بيتحفظ محليًا بس والمستخدم الجديد يترفض في الدخول */
+  Toast.info('جاري إنشاء المستخدم في قاعدة البيانات...');
+  const res = await Cloud.saveUser({ p_name: r.name.trim(), p_username: uname, p_password: r.pass, p_role: r.role, p_center: r.center || null, p_status: 'active', p_permissions: r.role === 'admin' ? defaultPerms('admin') : (r.perms || defaultPerms(r.role)) });
+  if (!res || !res.ok) return Toast.bad('فشل إنشاء المستخدم: ' + ((res && res.msg) || 'خطأ غير معروف'));
+  DB.db.users.push({ id: (res.id || uid('u')), name: r.name.trim(), username: uname, pass: '', role: r.role, center: r.center || '', status: 'active', created: now(), lastLogin: null, permissions: r.role === 'admin' ? defaultPerms('admin') : (r.perms || defaultPerms(r.role)) });
+  DB.audit('مستخدم جديد', r.name); DB.save(); Render.users();
+  Toast.ok('تم إنشاء المستخدم «' + uname + '» — تقدر تسجل دخول بيه فورًا');
+}
+
+async function editItem(id) {
+  const it = DB.item(id); if (!it) return;
+  if (!Session.hasPerm('edit_item')) return Toast.bad('لا تملك صلاحية تعديل الأصناف — كلّم مدير النظام');
+  const centers = DB.centers();
+  const r = await Modal.prompt('تعديل الصنف', [
+    { key: 'name', label: 'اسم الصنف', value: it.name },
+    { key: 'barcode', label: 'الباركود', value: it.barcode, dir: 'ltr' },
+    { key: 'unit', label: 'الوحدة', value: it.unit || '' },
+    { key: 'expect', label: 'الكمية الدفترية', type: 'number', value: it.expect },
+    { key: 'cat', label: 'التصنيف', value: it.cat || '' },
+    { key: 'center', label: 'مركز التكلفة', type: 'select', value: it.center, options: centers.map(c => ({ value: c.id, text: c.code + ' — ' + c.name })) }
+  ]);
+  if (!r || !r.name) return;
+  const out = await Cloud.updateItem({ p_item: it.id, p_name: r.name.trim(), p_barcode: r.barcode.trim() || it.barcode, p_unit: r.unit || it.unit, p_expected: num(r.expect), p_cat: r.cat || '', p_center: r.center || it.center });
+  if (!out || !out.ok) {
+    const m = (out && (out.msg || out.details)) || '';
+    if ((out && out.code === '42501') || /صلاحي/.test(m)) return Toast.bad('لا تملك صلاحية تعديل الأصناف — كلّم مدير النظام');
+    return Toast.bad(m || 'تعذّر تعديل الصنف');
+  }
+  it.name = r.name.trim(); it.barcode = r.barcode.trim() || it.barcode; it.unit = r.unit;
+  it.expect = num(r.expect); it.cat = r.cat; it.center = r.center;
+  DB.audit('تعديل صنف', it.name);
+  DB.save(); Render.items(); Render.reports && Render.reports(); Toast.ok('تم التعديل');
+}
+
+async function addItem() {
+  if (!Session.hasPerm('add_item')) return Toast.bad(NO_PERM_MSG);
+  const centers = DB.centers(); const cc = curCenter();
+  const r = await Modal.prompt('صنف جديد', [
+    { key: 'name', label: 'اسم الصنف', ph: 'مثال: شاي 100 كيس' },
+    { key: 'barcode', label: 'الباركود', ph: 'امسحه بالإسكانر أو اكتبه', dir: 'ltr' },
+    { key: 'unit', label: 'الوحدة', value: 'قطعة' },
+    { key: 'expect', label: 'الكمية الدفترية', type: 'number', value: 0 },
+    { key: 'cat', label: 'التصنيف', value: '' },
+    { key: 'center', label: 'مركز التكلفة', type: 'select', value: cc ? cc.id : (centers[0] ? centers[0].id : ''), options: centers.map(c => ({ value: c.id, text: c.code + ' — ' + c.name })) }
+  ], 'إضافة');
+  if (!r || !r.name) return;
+  if (r.barcode && DB.db.items.some(i => i.barcode === r.barcode.trim())) return Toast.bad('الباركود مسجل بالفعل');
+  const out = await Cloud.addItem({ p_name: r.name.trim(), p_barcode: (r.barcode || '').trim() || null, p_unit: r.unit || 'قطعة', p_expected: num(r.expect), p_center: r.center || null });
+  if (!out || !out.ok) {
+    const m = (out && (out.msg || out.details)) || '';
+    if ((out && out.code === '42501') || /صلاحي/.test(m)) return Toast.bad(NO_PERM_MSG);
+    return Toast.bad(m || 'تعذّر إضافة الصنف');
+  }
+  const it = out.item || {};
+  DB.db.items.push({ id: it.id || uid('it'), name: it.name || r.name.trim(), barcode: it.barcode || (r.barcode || '').trim() || 'N/A-' + hexId(6).toUpperCase(), unit: it.unit || r.unit || 'قطعة', expect: num(it.expected_qty != null ? it.expected_qty : r.expect), cat: r.cat, center: r.center, created: now() });
+  DB.audit('صنف جديد', r.name.trim());
+  DB.save(); Render.items(); Toast.ok('تم إضافة الصنف');
+}
+
+/* ============================ المزامنة/النسخ ============================ */
+async function syncNow() {
+  if (cloudOn()) {
+    const snap = await Cloud.snapshot();
+    if (snap && snap.ok) { applyCloudSnapshot(snap); Render.all(); Toast.ok('تم تحديث البيانات من قاعدة البيانات'); }
+    else Toast.bad('تعذّر الاتصال بقاعدة البيانات');
+    return;
+  }
+  const pend = DB.db.queue.filter(x => x.st === 'pending');
+  if (!pend.length) return Toast.info('لا توجد حركات معلّقة');
+  if (!Remote.configured()) return Toast.warn('اربط إعدادات الـ API أولاً — الحركات محفوظة محليًا ولن تُفقد');
+  try {
+    const chunk = pend.slice(0, 100);
+    await Remote.pushBatch(chunk.map(x => ({ id: x.id, type: x.type, payload: x.payload, ts: x.ts })));
+    chunk.forEach(x => x.st = 'done');
+    DB.save(); Render.sync(); Toast.ok(`تم رفع ${chunk.length} حركة`);
+  } catch (e) { Toast.bad('فشل الرفع: ' + e.message); }
+}
+
+function exportJSON() {
+  const data = JSON.stringify(DB.db, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `backup_inventory_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  Toast.ok('تم تنزيل النسخة الاحتياطية');
+}
+
+function exportCSV(rows, name) {
+  const csv = '\ufeff' + rows.map(r => r.map(c => `"${String(c == null ? '' : c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  Toast.ok('تم التصدير');
+}
+
+/* ============================ الأحداث ============================ */
+function bindEvents() {
+  // login
+  $('#btnLogin').onclick = doLogin;
+  $('#lgPass').onkeydown = e => { if (e.key === 'Enter') doLogin(); };
+  $('#lgUser').onkeydown = e => { if (e.key === 'Enter') $('#lgPass').focus(); };
+  $('#lgShow').onchange = e => { $('#lgPass').type = e.target.checked ? 'text' : 'password'; };
+  const bd = document.getElementById('btnDiag'); if (bd) bd.onclick = diagTest;
+  const bu = document.getElementById('btnDbUrl'); if (bu) bu.onclick = changeDbUrl;
+  const bb = $('#btnBell'); if (bb) bb.onclick = async () => {
+    Notify.clear();
+    if (!Session.can('reports') && !Session.hasPerm('view_audit')) return Toast.info('لا يوجد تنبيهات جديدة');
+    const ok = await refreshCloud(false);
+    Nav.go('dashboard');
+    Toast.ok(ok ? 'تم تحديث البيانات' : 'تعذّر التحديث');
+  };
+
+  $('#btnLogout').onclick = async () => {
+    const ok = await Modal.confirm('تسجيل الخروج', 'هل تريد الخروج من حسابك؟', 'خروج');
+    if (ok) { Scanner.stop(); Session.logout('خروج يدوي'); showLogin(); }
+  };
+  $('#btnTheme').onclick = () => {
+    const s = DB.db.settings; s.theme = s.theme === 'light' ? 'dark' : 'light'; DB.save(); applyTheme(); Toast.info(s.theme === 'light' ? 'النمط النهاري' : 'النمط الليلي');
+  };
+
+  // scan page
+  $('#btnCam').onclick = () => Scanner.running ? Scanner.stop() : Scanner.start();
+  $('#btnTorch').onclick = () => Scanner.torch();
+  $('#btnSwitchCam').onclick = () => Scanner.switchCam();
+  $$('#scanPlans button').forEach(b => b.onclick = () => {
+    DB.db.settings.scanMode = b.dataset.plan; DB.save();
+    $$('#scanPlans button').forEach(x => x.classList.toggle('on', x === b));
+    Toast.info(b.dataset.plan === 'confirm' ? 'تأكيد كل منتج' : 'مسح متواصل');
+  });
+  $('#manualForm').onsubmit = e => {
+    e.preventDefault();
+    const v = $('#manualCode').value.trim(); if (!v) return;
+    $('#manualCode').value = '';
+    handleCode(v, false);
+  };
+  $('#btnRepeat').onclick = () => {
+    if (!lastScanRec) return Toast.info('لا يوجد مسح سابق');
+    const it = DB.item(lastScanRec.itemId); if (it) handleCode(it.barcode, false);
+  };
+  $('#btnExportSession').onclick = () => {
+    const mine = DB.db.scans.filter(s => s.user === Session.user.id).sort((a, b) => a.ts - b.ts);
+    exportCSV([['الوقت', 'الصنف', 'الباركود', 'الكمية', 'المركز']].concat(mine.map(s => {
+      const it = DB.item(s.itemId) || {};
+      return [fmtDate(s.ts), it.name, it.barcode, s.qty, (DB.center(s.center) || {}).name];
+    })), `session_${Session.user.username}.csv`);
+  };
+
+  // items
+  $('#itemSearch').oninput = () => Render.items();
+  const btnRefI = $('#btnRefreshItems'); if (btnRefI) btnRefI.onclick = async () => { Toast.info('جاري تحديث الأصناف...'); if (await refreshCloud(false)) Toast.ok('تم تحديث الأصناف من قاعدة البيانات'); };
+  const btnFixI = $('#btnFixItems');
+  if (btnFixI) { btnFixI.style.display = Session.user.role === 'admin' ? '' : 'none';
+    btnFixI.onclick = async () => {
+      if (Session.user.role !== 'admin') return Toast.bad('للمدير فقط');
+      const ok = await Modal.confirm('إصلاح الأصناف', 'هيتم ربط الأصناف والمسحات اللي من غير مركز تكلفة بأول مركز في النظام، عشان تظهر في التقارير.<br>متأكد؟', 'تنفيذ');
+      if (!ok) return;
+      const out = await Cloud.assignOrphanItems(null);
+      if (!out || !out.ok) return Toast.bad((out && out.msg) || 'تعذّر التنفيذ');
+      await refreshCloud(false);
+      Toast.ok('تم ربط ' + (out.count || 0) + ' صنف — حدّث الصفحة وشوف التقارير');
+    }; }
+  $('#btnAddItem').onclick = addItem;
+  $('#btnExportItems').onclick = () => {
+    const items = DB.db.items;
+    exportCSV([['الصنف', 'الباركود', 'الوحدة', 'الدفتري', 'الممسوح', 'الفارق', 'المركز']].concat(items.map(i => {
+      const sc = DB.qtyOf(i.center, i.id);
+      return [i.name, i.barcode, i.unit, i.expect, sc, sc - num(i.expect), (DB.center(i.center) || {}).name];
+    })), 'items.csv');
+  };
+  $('#btnBadgeSheet').onclick = printBadges;
+
+  // reports
+  $$('#repTabs button').forEach(b => b.onclick = () => {
+    Render.repFilter = b.dataset.f;
+    $$('#repTabs button').forEach(x => x.classList.toggle('on', x === b));
+    Render.reports();
+  });
+  $('#btnPrintReport').onclick = () => window.print();
+
+  // centers / users
+  $('#btnAddCC').onclick = addCenter;
+  $('#btnAddUser').onclick = addUser;
+  $('#userSearch').oninput = () => Render.users();
+  $$('#userTabs button').forEach(b => b.onclick = () => {
+    Render.userFilter = b.dataset.r;
+    $$('#userTabs button').forEach(x => x.classList.toggle('on', x === b));
+    Render.users();
+  });
+
+  // sync
+  $('#btnTestCfg').onclick = async () => {
+    const st = $('#cfgState'); st.className = 'chip warn'; st.textContent = '⏳ جاري الاختبار...';
+    if (!syncCfg().url) { st.className = 'chip'; st.textContent = '💾 أوفلاين'; return Toast.info('وضع أوفلاين — مفيش قاعدة بيانات'); }
+    try {
+      const out = await Cloud.call('app_snapshot', { p_token: 'ping' });
+      st.className = 'chip ok'; st.textContent = '✅ القاعدة متصلة'; Toast.ok('الاتصال بقاعدة البيانات ناجح');
+    } catch (e) {
+      if (e.code === '28000' || /جلسة غير صالحة|invalid session|JWT/i.test(e.message)) {
+        st.className = 'chip ok'; st.textContent = '✅ القاعدة متصلة'; Toast.ok('الاتصال ناجح — سجّل الدخول للاختبار الكامل');
+      } else if (e.code === 'PGRST202' || /Could not find the function/i.test(e.message)) {
+        st.className = 'chip bad'; st.textContent = '⛔ الدوال غير موجودة';
+        Toast.bad('القاعدة متصلة لكن دوال app_* غير منشأة — شغّل ملف SQL مرة واحدة من SQL Editor');
+      } else { st.className = 'chip bad'; st.textContent = '⛔ فشل الاتصال'; Toast.bad('فشل: ' + e.message); }
+    }
+  };
+  $('#btnSyncNow').onclick = syncNow;
+  $('#btnBackup').onclick = exportJSON;
+  $('#btnRestore').onclick = () => $('#fileRestore').click();
+  $('#fileRestore').onchange = (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = async () => {
+      const d = safeJSON(rd.result, null);
+      if (!d || !d.users || !d.centers) return Toast.bad('الملف غير صالح');
+      const ok = await Modal.confirm('استعادة نسخة', `سيتم استبدال البيانات الحالية بالنسخة المحفوظة (${d.users.length} مستخدم · ${d.centers.length} مركز · ${(d.items || []).length} صنف). هل تريد المتابعة؟`, 'استعادة', true);
+      if (!ok) return;
+      const keepCfg = d.cfg && d.cfg.url;      // اتصال محلي اختياري (نادر) — مش بنمسحه بالغلط
+      DB.db = Object.assign(DB.fresh(), d);
+      DB.db.cfg = keepCfg ? d.cfg : { url: '', key: '', pass: '' };
+      DB.saveNow(); showLogin(); Toast.ok('تمت الاستعادة — الدخول من جديد');
+    };
+    rd.readAsText(f);
+  };
+  // في وضع السحابة: التصفير المحلي ملوش لازمة (البيانات في القاعدة) — نخفيه عشان ما يلخبطش
+  try { if (cloudOn()) { const rb = $('#btnResetData'); if (rb) rb.style.display = 'none'; } } catch (e) { }
+  $('#btnResetData').onclick = async () => {
+    const ok = await Modal.confirm('تصفير بيانات الجرد', 'سيتم حذف كل عمليات المسح والكميات الممسوحة (المستخدمون والمراكز والأصناف تبقى). هل أنت متأكد؟', 'تصفير', true);
+    if (!ok) return;
+    DB.db.scans = []; DB.db.queue = []; DB.audit('تصفير', 'تصفير كل عمليات الجرد'); DB.saveNow(); Render.all(); Toast.ok('تم تصفير بيانات الجرد');
+  };
+  const dl = $('#btnSchemaDl');
+  if (dl) dl.onclick = () => {
+    const blob = new Blob([SCHEMA], { type: 'text/sql;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'supabase_fix_v3.sql';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    Toast.ok('تم تنزيل الملف — شغّله في SQL Editor مرة واحدة');
+  };
+  $('#btnSchemaCopy').onclick = () => {
+    navigator.clipboard.writeText(SCHEMA).then(() => Toast.ok('تم نسخ نموذج SQL')).catch(() => Toast.warn('تعذّر النسخ'));
+  };
+
+  // settings
+  $('#btnSaveSettings').onclick = () => {
+    const s = DB.db.settings;
+    s.company = $('#stCompany').value.trim() || s.company;
+    s.dateFmt = $('#stDateFmt').value; s.scanMode = $('#stScanMode').value;
+    s.burst = clamp(num($('#stBurst').value) || 2, 1, 10);
+    s.sound = num($('#stSound').value); s.vibe = num($('#stVibe').value); s.theme = $('#stTheme').value;
+    if ($('#stNotifySound')) s.notifySound = num($('#stNotifySound').value);
+    if ($('#stNotifyPopup')) s.notifyPopup = num($('#stNotifyPopup').value);
+    const np = $('#stPass').value;
+    if (np) { if (np.length < 4) return Toast.bad('كلمة مرور المدير قصيرة'); s.pass = np; }
+    DB.audit('إعدادات', 'تحديث إعدادات النظام'); DB.save(); applyTheme(); Toast.ok('تم الحفظ');
+  };
+
+  // مراقبة الإيقاف الفوري (أهم طلب: الخروج التلقائي)
+  setInterval(() => {
+    if (!Session.user) return;
+    if (cloudOn()) {
+      const t = Date.now();
+      const gap = (Session.user.role === 'admin' || Session.hasPerm('view_audit')) ? 3000 : 6000;
+      if (!window.__lastCloudTick || t - window.__lastCloudTick > gap) {
+        window.__lastCloudTick = t;
+        CloudSync.tick();
+      }
+      return;
+    }    const raw = localStorage.getItem(Session.KEY);
+    if (!raw) { if (Session.user) { Session.user = null; showLogin(); } return; }
+    const s = safeJSON(raw, null);
+    if (!s || !s.uid) { Session.user = null; showLogin(); return; }
+    if (s.uid !== Session.user.id) { Session.user = null; showLogin(); return; }
+    const u = DB.user(s.uid);
+    if (!u || u.status !== 'active') { Session.kick('تم إيقاف حسابك من الإدارة — تم الخروج تلقائيًا'); }
+    else {
+      Session.user = u;
+      // مركز أُغلق من جهاز آخر → أوقف الكاميرا فورًا
+      const cc = curCenter();
+      if (cc && cc.status !== 'open' && Scanner.running) { Scanner.stop(); Render.scanPage(); Toast.warn('تم إغلاق الجرد من الإدارة'); }
+      if (Nav.cur === 'scan' && $('#scanLocked') && cc) {
+        const blocked = cc.status !== 'open';
+        if (blocked && !$('#scanLocked').classList.contains('showing')) { $('#scanLocked').classList.add('showing'); Render.scanPage(); }
+        if (!blocked && $('#scanLocked').classList.contains('showing')) { $('#scanLocked').classList.remove('showing'); Render.scanPage(); }
+      }
+      if (Nav.cur === 'centers' && Session.can('centers')) Render.centers();
+      if (Nav.cur === 'users' && Session.can('users')) Render.users();
+    }
+  }, 800);
+
+  // مزامنة بين التبويبات
+  window.addEventListener('storage', e => {
+    if (e.key === DB.KEY && e.newValue) {
+      const d = safeJSON(e.newValue, null);
+      if (d && d.v === 2) {
+        DB.db = d;
+        if (Session.user) { const u = DB.user(Session.user.id); if (!u || u.status !== 'active') { Session.kick('تم إيقاف حسابك من الإدارة'); return; } Session.user = u; }
+        Render.all();
+        if (Session.can('scan') && curCenter()) Render.scanPage();
+      }
+    }
+    if (e.key === Session.KEY && !e.newValue && Session.user) { Session.user = null; showLogin(); }
+  });
+
+  // اختصار Alt+: لينكات / منع خروج الكاميرا بالخلفية
+  document.addEventListener('visibilitychange', () => { });
+}
+
+/* ============================ التشغيل ============================ */
+function applyTheme() {
+  const light = DB.db.settings.theme === 'light';
+  document.documentElement.style.setProperty('--glass', light ? 'rgba(255,255,255,.72)' : 'rgba(255,255,255,.075)');
+  document.documentElement.style.setProperty('--glass2', light ? 'rgba(255,255,255,.62)' : 'rgba(255,255,255,.045)');
+  document.documentElement.style.setProperty('--stroke', light ? 'rgba(15,23,42,.14)' : 'rgba(255,255,255,.14)');
+  document.documentElement.style.setProperty('--stroke2', light ? 'rgba(15,23,42,.09)' : 'rgba(255,255,255,.08)');
+  document.documentElement.style.setProperty('--txt', light ? '#0f172a' : '#eef2f9');
+  document.documentElement.style.setProperty('--muted', light ? '#55637d' : '#9aa8c2');
+  document.body.style.background = light ? '#eef2f8' : '#060a14';
+  document.body.style.color = light ? '#0f172a' : '#eef2f9';
+  $$('input,select,textarea').forEach(i => { i.style.background = light ? 'rgba(255,255,255,.82)' : ''; });
+  $('#btnTheme').textContent = light ? '☀️' : '🌙';
+}
+
+function showLogin() {
+  $('#app').classList.add('hide');
+  $('#login').style.display = 'grid';
+  $('#lgErr').classList.add('hide');
+  $('#lgUser').value = ''; $('#lgPass').value = '';
+  const cf = syncCfg();
+  $('#lgMode').textContent = cf.url ? (isSupabase(cf.url) ? '☁️ قاعدة بيانات' : '☁️ API') : '💾 أوفلاين';
+  $('#lgMode').className = 'chip ' + (cf.url ? 'ok' : 'acc');
+  if (Scanner.stream) Scanner.stop();
+  if (Scanner.stream) Scanner.stop();
+}
+
+async function doLogin() {
+  const u = $('#lgUser').value.trim(), p = $('#lgPass').value;
+  const e = $('#lgErr'), btn = $('#btnLogin');
+  if (!u || !p) { e.textContent = 'اكتب اسم المستخدم وكلمة المرور'; e.classList.remove('hide'); return; }
+  btn.disabled = true; const oldTxt = btn.textContent; btn.textContent = '⏳ جاري الدخول...';
+  const r = await Session.login(u, p);
+  btn.disabled = false; btn.textContent = oldTxt;
+  if (!r.ok) { e.textContent = r.msg; e.classList.remove('hide'); Audio2.bad(); return; }
+  e.classList.add('hide');
+  await enterApp();
+}
+
+async function enterApp() {
+  $('#login').style.display = 'none';
+  $('#app').classList.remove('hide');
+  if (cloudOn() && Session.token) {
+    const snap = await Cloud.snapshot();
+    if (snap && snap.ok) applyCloudSnapshot(snap);
+    else if (!snap) Toast.warn('لا يوجد اتصال بقاعدة البيانات — أعمالك ستُحفظ محليًا');
+  }
+  Render.all();
+  // القارئ يفتح تلقائيًا صفحة المسح (طلب أساسي)
+  const start = (Session.user.role === 'reader' || Session.user.role === 'supervisor') ? 'scan' : 'dashboard';
+  Nav.go(Session.can(start) ? start : 'dashboard');
+  Toast.ok('أهلاً ' + Session.user.name);
+  if (start === 'scan' && Session.user.role === 'reader') {
+    setTimeout(() => { if (curCenter() && curCenter().status === 'open') Scanner.start(); }, 450);
+  }
+}
+
+/* ملصقات الباركود */
+function printBadges() {
+  const cc = curCenter();
+  const scope = cc ? cc.id : null;
+  const items = DB.db.items.filter(i => !scope || i.center === scope);
+  const w = window.open('', '_blank');
+  if (!w) return Toast.bad('اسمح بالنوافذ المنبثقة لطباعة الملصقات');
+  w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><title>ملصقات باركود</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+  <style>body{font-family:Cairo,sans-serif;background:#fff;padding:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .b{border:1px dashed #bbb;border-radius:8px;padding:8px;text-align:center;page-break-inside:avoid}
+  .n{font-size:11px;font-weight:700;margin-bottom:4px;height:28px;overflow:hidden}
+  svg{max-width:100%}
+  @media print{body{padding:0}.b{border:1px solid #ddd}}</style></head><body>
+  ${items.map(i => `<div class="b"><div class="n">${esc(i.name)}</div><svg class="bc" data-c="${esc(i.barcode)}"></svg></div>`).join('')}
+  <script>document.querySelectorAll('.bc').forEach(s=>{try{JsBarcode(s,s.dataset.c,{width:1.5,height:38,fontSize:10,margin:2})}catch(e){}});setTimeout(()=>window.print(),700);<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+/* نموذج SQL للربط */
+const SCHEMA = "-- =====================================================================\n--  نظام الجرد الذكي — v3  |  Migration (Supabase)\n--  شغّل الملف ده مرة واحدة في: Supabase → SQL Editor → New query → Run\n--  ✅ آمن لإعادة التشغيل أكثر من مرة (بدون فقدان بيانات)\n--  ✅ بينشئ كل الجداول والدوال بنفسه\n--  ✅ بيمسح أي نسخة قديمة/مكررة من الدوال (سبب رسالة PGRST202)\n--  ✅ المسارات المتاحة للتطبيق:\n--       public.inv_app_login(...)   ← الرسمي\n--       inv_api.app_login(...)      ← احتياطي (بعد إضافة inv_api في Exposed schemas)\n-- =====================================================================\n\n-- =====================================================================\n--  ⚠️ خطوة مهمة (لو ظهور الدوال اتأخر أو رجعت رسالة PGRST202):\n--     Supabase → Project Settings → API → Exposed schemas\n--     لازم يكون فيها: public, inv_api   (زوّد inv_api لو مش موجودة) ثم Save\n--     وبعدها: SQL Editor → شغّل مرة تانية:  notify pgrst, 'reload schema';\n-- =====================================================================\n\nbegin;\n\ncreate extension if not exists pgcrypto;\ncreate schema if not exists inv;\n\n-- =====================================================================\n-- 1) الجداول\n-- =====================================================================\ncreate table if not exists inv.settings (\n  company    text primary key,\n  data       jsonb not null default '{}'::jsonb,\n  updated_at timestamptz not null default now()\n);\n\ncreate table if not exists inv.centers (\n  id         uuid primary key default gen_random_uuid(),\n  company    text not null default 'main',\n  code       text,\n  name       text not null,\n  location   text,\n  status     text not null default 'closed' check (status in ('open','closed')),\n  opened_at  timestamptz,\n  closed_at  timestamptz,\n  snapshot   jsonb,\n  created_at timestamptz not null default now(),\n  unique (company, code)\n);\n\ncreate table if not exists inv.users (\n  id         uuid primary key default gen_random_uuid(),\n  company    text not null default 'main',\n  center_id  uuid references inv.centers(id) on delete set null,\n  name       text not null,\n  username   text not null,\n  pass_hash  text not null,\n  role       text not null default 'reader' check (role in ('admin','supervisor','reader','reviewer')),\n  status     text not null default 'active' check (status in ('active','stopped')),\n  last_login timestamptz,\n  created_at timestamptz not null default now(),\n  unique (company, username)\n);\n\ncreate table if not exists inv.items (\n  id           uuid primary key default gen_random_uuid(),\n  company      text not null default 'main',\n  center_id    uuid references inv.centers(id) on delete cascade,\n  name         text not null,\n  barcode      text,\n  unit         text default 'قطعة',\n  expected_qty numeric(14,3) not null default 0,\n  category     text,\n  created_at   timestamptz not null default now()\n);\ncreate index if not exists idx_items_center  on inv.items(center_id);\ncreate index if not exists idx_items_barcode on inv.items(barcode);\n\ncreate table if not exists inv.scans (\n  id         uuid primary key default gen_random_uuid(),\n  client_id  text unique,\n  company    text not null default 'main',\n  center_id  uuid not null references inv.centers(id) on delete cascade,\n  item_id    uuid not null references inv.items(id) on delete cascade,\n  user_id    uuid references inv.users(id) on delete set null,\n  user_name  text,\n  qty        numeric(14,3) not null,\n  mode       text not null default 'add',\n  device     text,\n  revoked    boolean not null default false,\n  ts         timestamptz not null default now()\n);\ncreate index if not exists idx_scans_center_item on inv.scans(center_id, item_id);\ncreate index if not exists idx_scans_user        on inv.scans(user_id);\ncreate index if not exists idx_scans_ts          on inv.scans(ts desc);\n\ncreate table if not exists inv.sessions (\n  token      text primary key,\n  user_id    uuid not null references inv.users(id) on delete cascade,\n  device     text,\n  created_at timestamptz not null default now(),\n  expires_at timestamptz not null default now() + interval '30 days'\n);\n\ncreate table if not exists inv.audit (\n  id      bigserial primary key,\n  company text not null default 'main',\n  ts      timestamptz not null default now(),\n  user_id uuid,\n  name    text,\n  event   text,\n  detail  text,\n  device  text\n);\n\n-- =====================================================================\n-- 2) الدوال الداخلية في schema inv\n-- =====================================================================\ncreate or replace function inv.hash_pw(p_pw text)\nreturns text language sql immutable as $fn$\n  select encode(digest('smartinv!' || p_pw, 'sha256'), 'hex');\n$fn$;\n\n-- ---------- دخول ----------\ncreate or replace function inv.app_login(p_username text, p_password text, p_device text default null)\nreturns jsonb language plpgsql security definer set search_path = inv, public as $fn$\ndeclare v_user inv.users; v_center inv.centers; v_token text;\nbegin\n  select * into v_user from inv.users\n   where lower(username) = lower(trim(p_username)) and company = 'main' limit 1;\n\n  if v_user.id is null then\n    return jsonb_build_object('ok', false, 'code', 'no_user', 'msg', 'اسم المستخدم غير موجود');\n  end if;\n  if v_user.pass_hash <> inv.hash_pw(p_password) then\n    return jsonb_build_object('ok', false, 'code', 'bad_pass', 'msg', 'كلمة المرور غير صحيحة');\n  end if;\n  if v_user.status <> 'active' then\n    return jsonb_build_object('ok', false, 'code', 'stopped', 'msg', 'هذا الحساب موقوف — تواصل مع المدير');\n  end if;\n\n  v_token := encode(gen_random_bytes(24), 'hex');\n  insert into inv.sessions(token, user_id, device) values (v_token, v_user.id, p_device);\n  update inv.users set last_login = now() where id = v_user.id;\n\n  if v_user.center_id is not null then select * into v_center from inv.centers where id = v_user.center_id; end if;\n\n  insert into inv.audit(company, user_id, name, event, detail, device)\n  values (v_user.company, v_user.id, v_user.name, 'دخول', 'تم تسجيل الدخول', p_device);\n\n  return jsonb_build_object(\n    'ok', true, 'token', v_token,\n    'user', jsonb_build_object(\n      'id', v_user.id, 'name', v_user.name, 'username', v_user.username,\n      'role', v_user.role, 'status', v_user.status,\n      'centerId', v_user.center_id, 'centerName', v_center.name,\n      'centerStatus', v_center.status\n    )\n  );\nend $fn$;\n\n-- ---------- تحقق التوكن ----------\ncreate or replace function inv.app_me(p_token text)\nreturns jsonb language plpgsql security definer set search_path = inv, public as $fn$\ndeclare v_user inv.users; v_center inv.centers;\nbegin\n  select u.* into v_user from inv.sessions s join inv.users u on u.id = s.user_id\n   where s.token = p_token and s.expires_at > now() limit 1;\n\n  if v_user.id is null then return jsonb_build_object('ok', false, 'code', 'no_session'); end if;\n  if v_user.status <> 'active' then return jsonb_build_object('ok', false, 'code', 'stopped'); end if;\n  if v_user.center_id is not null then select * into v_center from inv.centers where id = v_user.center_id; end if;\n\n  return jsonb_build_object('ok', true, 'user', jsonb_build_object(\n      'id', v_user.id, 'name', v_user.name, 'username', v_user.username, 'role', v_user.role,\n      'status', v_user.status, 'centerId', v_user.center_id, 'centerName', v_center.name,\n      'centerStatus', v_center.status));\nend $fn$;\n\ncreate or replace function inv.app_logout(p_token text)\nreturns jsonb language plpgsql security definer set search_path = inv, public as $fn$\nbegin\n  delete from inv.sessions where token = p_token;\n  return jsonb_build_object('ok', true);\nend $fn$;\n\ncreate or replace function inv._auth(p_token text)\nreturns inv.users language plpgsql security definer set search_path = inv, public as $fn$\ndeclare v_user inv.users;\nbegin\n  select u.* into v_user from inv.sessions s join inv.users u on u.id = s.user_id\n   where s.token = p_token and s.expires_at > now() limit 1;\n  if v_user.id is null then raise exception 'جلسة غير صالحة — سجّل الدخول من جديد' using errcode = '28000'; end if;\n  if v_user.status <> 'active' then raise exception 'تم إيقاف حسابك من الإدارة' using errcode = '28000'; end if;\n  return v_user;\nend $fn$;\n\n-- ---------- مسح باركود ----------\ncreate or replace function inv.app_scan(p_token text, p_barcode text, p_qty numeric default 1, p_center uuid default null)\nreturns jsonb language plpgsql security definer set search_path = inv, public as $fn$\ndeclare v_user inv.users; v_center inv.centers; v_item inv.items; v_id uuid; v_total numeric;\nbegin\n  v_user := inv._auth(p_token);\n  if v_user.role not in ('admin','supervisor','reader') then\n    raise exception 'لا تملك صلاحية المسح' using errcode = '42501';\n  end if;\n\n  v_center := null;\n  if p_center is not null then select * into v_center from inv.centers where id = p_center; end if;\n  if v_center.id is null then select * into v_center from inv.centers where id = v_user.center_id; end if;\n  if v_center.id is null then raise exception 'حسابك غير مرتبط بمركز تكلفة' using errcode = 'P0001'; end if;\n  if v_center.status <> 'open' then raise exception 'الجرد مقفول لهذا المركز' using errcode = 'P0001'; end if;\n\n  select * into v_item from inv.items where barcode = trim(p_barcode) and center_id = v_center.id limit 1;\n  if v_item.id is null then\n    select * into v_item from inv.items where barcode = trim(p_barcode) limit 1;\n  end if;\n  if v_item.id is null then\n    return jsonb_build_object('ok', false, 'code', 'not_found', 'barcode', p_barcode);\n  end if;\n\n  insert into inv.scans(company, center_id, item_id, user_id, user_name, qty, mode, device)\n  values (v_center.company, v_center.id, v_item.id, v_user.id, v_user.name, p_qty, 'add', null)\n  returning id into v_id;\n\n  select coalesce(sum(qty),0) into v_total from inv.scans\n   where center_id = v_center.id and item_id = v_item.id and not revoked;\n\n  return jsonb_build_object('ok', true, 'scanId', v_id,\n    'item', jsonb_build_object('id', v_item.id, 'name', v_item.name, 'barcode', v_item.barcode,\n      'unit', v_item.unit, 'expected', v_item.expected_qty, 'total', v_total));\nend $fn$;\n\n-- ---------- إضافة صنف ----------\ncreate or replace function inv.app_add_item(p_token text, p_name text, p_barcode text, p_unit text default 'قطعة',\n                                             p_expected numeric default 0, p_category text default null, p_center uuid default null)\nreturns jsonb language plpgsql security definer set search_path = inv, public as $fn$\ndeclare v_user inv.users; v_center inv.centers; v_item inv.items;\nbegin\n  v_user := inv._auth(p_token);\n  if v_user.role not in ('admin','supervisor') then raise exception 'لا تملك صلاحية إضافة صنف' using errcode='42501'; end if;\n  if p_center is not null then select * into v_center from inv.centers where id = p_center; end if;\n  if v_center.id is null then select * into v_center from inv.centers where id = v_user.center_id; end if;\n\n  insert into inv.items(company, center_id, name, barcode, unit, expected_qty, category)\n  values (coalesce(v_center.company,'main'), v_center.id, p_name, nullif(trim(p_barcode),''), p_unit, p_expected, p_category)\n  returning * into v_item;\n  return jsonb_build_object('ok', true, 'item', to_jsonb(v_item));\nend $fn$;\n\n-- ---------- إدارة ----------\ncreate or replace function inv._admin(p_token text)\nreturns inv.users language plpgsql security definer set search_path = inv, public as $fn$\ndeclare v_user inv.users;\nbegin\n  v_user := inv._auth(p_token);\n  if v_user.role <> 'admin' then raise exception 'هذه العملية للمدير فقط' using errcode='42501'; end if;\n  return v_user;\nend $fn$;\n\ncreate or replace function inv.app_set_user_status(p_token text, p_user uuid, p_status text)\nreturns jsonb language plpgsql security definer set search_path = inv, public as $fn$\ndeclare v_admin inv.users; v_name text;\nbegin\n  v_admin := inv._admin(p_token);\n  if p_status not in ('active','stopped') then raise exception 'حالة غير صحيحة'; end if;\n  if p_user = v_admin.id and p_status = 'stopped' then raise exception 'لا يمكنك إيقاف حسابك'; end if;\n  update inv.users set status = p_status where id = p_user returning name into v_name;\n  if p_status = 'stopped' then delete from inv.sessions where user_id = p_user; end if;\n  insert into inv.audit(company, user_id, name, event, detail)\n  values (v_admin.company, v_admin.id, v_admin.name,\n          case when p_status='stopped' then 'إيقاف مستخدم' else 'تفعيل مستخدم' end, v_name);\n  return jsonb_build_object('ok', true);\nend $fn$;\n\ncreate or replace function inv.app_save_user(p_token text, p_id uuid default null, p_name text default null,\n  p_username text default null, p_password text default null, p_role text default 'reader',\n  p_center uuid default null, p_status text default 'active')\nreturns jsonb language plpgsql security definer set search_path = inv, public as $fn$\ndeclare v_admin inv.users; v_id uuid;\nbegin\n  v_admin := inv._admin(p_token);\n\n  if p_id is null then\n    if p_password is null or length(p_password) < 4 then raise exception 'كلمة المرور قصيرة جدًا'; end if;\n    insert into inv.users(company, center_id, name, username, pass_hash, role, status)\n    values (v_admin.company, p_center, p_name, lower(trim(p_username)), inv.hash_pw(p_password), p_role, p_status)\n    returning id into v_id;\n    insert into inv.audit(company, user_id, name, event, detail) values (v_admin.company, v_admin.id, v_admin.name, 'مستخدم جديد', p_name);\n  else\n    v_id := p_id;\n    update inv.users set\n      name = coalesce(p_name, name),\n      username = coalesce(lower(trim(p_username)), username),\n      role = coalesce(p_role, role),\n      center_id = p_center,\n      status = coalesce(p_status, status),\n      pass_hash = case when p_password is null or p_password = '' then pass_hash else inv.hash_pw(p_password) end\n    where id = p_id;\n    if p_password is not null and p_password <> '' then delete from inv.sessions where user_id = p_id; end if;\n    insert into inv.audit(company, user_id, name, event, detail) values (v_admin.company, v_admin.id, v_admin.name, 'تعديل مستخدم', p_name);\n  end if;\n  return jsonb_build_object('ok', true, 'id', v_id);\nend $fn$;\n\ncreate or replace function inv.app_set_center_status(p_token text, p_center uuid, p_status text)\nreturns jsonb language plpgsql security definer set search_path = inv, public as $fn$\ndeclare v_admin inv.users; v_c inv.centers; v_snap jsonb;\nbegin\n  v_admin := inv._admin(p_token);\n  select * into v_c from inv.centers where id = p_center;\n  if v_c.id is null then raise exception 'المركز غير موجود'; end if;\n\n  if p_status = 'closed' then\n    select coalesce(jsonb_agg(jsonb_build_object('itemId', i.id, 'barcode', i.barcode, 'name', i.name,\n             'expected', i.expected_qty, 'scanned', (select coalesce(sum(s.qty),0) from inv.scans s where s.item_id = i.id and not s.revoked))), '[]'::jsonb)\n      into v_snap from inv.items i where i.center_id = p_center;\n    update inv.centers set status='closed', closed_at=now(), snapshot=v_snap where id = p_center;\n    insert into inv.audit(company, user_id, name, event, detail) values (v_admin.company, v_admin.id, v_admin.name, 'إغلاق جرد', v_c.name);\n  else\n    update inv.centers set status='open', opened_at=now(), closed_at=null where id = p_center;\n    insert into inv.audit(company, user_id, name, event, detail) values (v_admin.company, v_admin.id, v_admin.name, 'فتح جرد', v_c.name);\n  end if;\n  return jsonb_build_object('ok', true, 'status', p_status);\nend $fn$;\n\ncreate or replace function inv.app_snapshot(p_token text)\nreturns jsonb language plpgsql security definer set search_path = inv, public as $fn$\ndeclare v_user inv.users; v_out jsonb;\nbegin\n  v_user := inv._auth(p_token);\n\n  select jsonb_build_object(\n    'ok', true,\n    'centers', coalesce((select jsonb_agg(jsonb_build_object(\n        'id', c.id, 'code', c.code, 'name', c.name, 'loc', c.location, 'status', c.status,\n        'openedAt', c.opened_at, 'closedAt', c.closed_at) order by c.created_at)\n      from inv.centers c), '[]'::jsonb),\n    'users', case when v_user.role = 'admin' then coalesce((select jsonb_agg(jsonb_build_object(\n        'id', u.id, 'name', u.name, 'username', u.username, 'role', u.role, 'status', u.status,\n        'center', u.center_id, 'lastLogin', u.last_login) order by u.created_at)\n      from inv.users u), '[]'::jsonb) else '[]'::jsonb end,\n    'items', coalesce((select jsonb_agg(jsonb_build_object(\n        'id', i.id, 'name', i.name, 'barcode', i.barcode, 'unit', i.unit,\n        'expect', i.expected_qty, 'center', i.center_id, 'cat', i.category) order by i.name)\n      from inv.items i), '[]'::jsonb),\n    'totals', coalesce((select jsonb_object_agg(t.item_id, t.qty) from (\n        select item_id, sum(qty) qty from inv.scans where not revoked group by item_id) t), '{}'::jsonb),\n    'audit', case when v_user.role = 'admin' then coalesce((select jsonb_agg(jsonb_build_object(\n        'ts', a.ts, 'name', a.name, 'evt', a.event, 'detail', a.detail, 'dev', a.device) order by a.ts desc)\n      from (select * from inv.audit order by ts desc limit 60) a), '[]'::jsonb) else '[]'::jsonb end\n  ) into v_out;\n  return v_out;\nend $fn$;\n\ncreate or replace function inv.app_scan_stats(p_token text)\nreturns jsonb language plpgsql security definer set search_path = inv, public as $fn$\ndeclare v_user inv.users;\nbegin\n  v_user := inv._auth(p_token);\n  return jsonb_build_object('ok', true, 'rows', coalesce((\n    select jsonb_agg(jsonb_build_object('user', t.user_name, 'center', t.center_id, 'cnt', t.cnt, 'items', t.items, 'last', t.last))\n    from (select user_name, center_id, count(*) cnt, count(distinct item_id) items, max(ts) last\n            from inv.scans where not revoked group by user_name, center_id) t), '[]'::jsonb));\nend $fn$;\n\ncreate or replace function inv.app_reset_center(p_token text, p_center uuid)\nreturns jsonb language plpgsql security definer set search_path = inv, public as $fn$\ndeclare v_admin inv.users;\nbegin\n  v_admin := inv._admin(p_token);\n  update inv.scans set revoked = true where center_id = p_center and not revoked;\n  insert into inv.audit(company, user_id, name, event, detail) values (v_admin.company, v_admin.id, v_admin.name, 'تصفير', 'تصفير جرد مركز');\n  return jsonb_build_object('ok', true);\nend $fn$;\n\n-- =====================================================================\n-- 3) بيانات البداية (مرة واحدة فقط)\n-- =====================================================================\ninsert into inv.settings(company, data)\nvalues ('main', '{\"company\":\"مؤسستي\",\"dateFmt\":\"ar\",\"scanMode\":\"continuous\",\"burst\":2,\"sound\":1,\"vibe\":1,\"theme\":\"dark\"}'::jsonb)\non conflict (company) do nothing;\n\ninsert into inv.centers(company, code, name, location, status)\nselect 'main', v.code, v.name, v.loc, 'closed'\nfrom (values ('CC-001','المخزن الرئيسي','الفرع الرئيسي'),\n             ('CC-002','فرع المعادي','المعادي'),\n             ('CC-003','كاشير الشوبينج','مول العرب')) as v(code, name, loc)\nwhere not exists (select 1 from inv.centers where company='main');\n\ninsert into inv.users(company, center_id, name, username, pass_hash, role, status)\nselect 'main', (select id from inv.centers where code = v.cc), v.name, v.username, v.hash, v.role, v.status\nfrom (values\n  (null,    'مدير النظام',   'admin',   'e643b7392b64dfd07567faf086e315fda54f24647b1ec6e619eac1fb8de1cb1b', 'admin',      'active'),\n  ('CC-001','محمود المشرف', 'mahmoud', 'bdc61ce3090c2b4149e16958c0e21e39b3c52b53f9745a77cdf2e938c9c9f6d2',  'supervisor', 'active'),\n  ('CC-002','أحمد القارئ',  'ahmed',   'bdc61ce3090c2b4149e16958c0e21e39b3c52b53f9745a77cdf2e938c9c9f6d2',  'reader',     'active'),\n  ('CC-002','سارة القارئة', 'sara',    'bdc61ce3090c2b4149e16958c0e21e39b3c52b53f9745a77cdf2e938c9c9f6d2',  'reader',     'active'),\n  ('CC-001','خالد المراجع', 'khaled',  'bdc61ce3090c2b4149e16958c0e21e39b3c52b53f9745a77cdf2e938c9c9f6d2',  'reviewer',   'stopped')\n) as v(cc, name, username, hash, role, status)\nwhere not exists (select 1 from inv.users where company='main');\n\ninsert into inv.items(company, center_id, name, barcode, unit, expected_qty, category)\nselect 'main',\n       (select id from inv.centers where code = case when v.i % 3 = 0 then 'CC-001' else 'CC-002' end),\n       v.name, v.barcode, v.unit, v.expect, v.cat\nfrom (values\n  (0,'حليب جهينة كامل 1 لتر','6221032001234','علبة',120,'ألبان'),\n  (1,'أرز مصري فاخر 5 كجم','6221032002340','كيس',60,'بقالة'),\n  (2,'زيت عباد الشمس 1.5 لتر','6221032003456','زجاجة',90,'زيوت'),\n  (3,'سكر ناعم 1 كجم','6221032004562','كيس',200,'بقالة'),\n  (4,'شاي العروسة 250 جرام','6221032005678','علبة',150,'مشروبات'),\n  (5,'مكرونة إيطاليانو 400 جرام','6221032006784','كيس',300,'بقالة'),\n  (6,'صلصة طماطم 320 جرام','6221032007890','علبة',220,'معلبات'),\n  (7,'جبنة بيضاء 500 جرام','6221032008906','علبة',80,'ألبان'),\n  (8,'مسحوق غسيل 2.5 كجم','6221032009012','كيس',45,'منظفات'),\n  (9,'صابون تواليت 120 جرام','6221032010128','قطعة',260,'نظافة'),\n  (10,'مياه معدنية 1.5 لتر','6221032011234','زجاجة',400,'مشروبات'),\n  (11,'عصير برتقال 1 لتر','6221032012340','كرتونة',110,'مشروبات')\n) as v(i, name, barcode, unit, expect, cat)\nwhere not exists (select 1 from inv.items);\n\n-- =====================================================================\n-- 4) مسح النسخ القديمة/المكررة من الدوال (سبب PGRST202)\n-- =====================================================================\ndo $do$\ndeclare f record;\nbegin\n  for f in select p.oid::regprocedure::text as sig from pg_proc p\n             join pg_namespace n on n.oid = p.pronamespace\n            where n.nspname in ('public','inv','inv_api')\n              and (p.proname like 'app\\_%' or p.proname like 'inv\\_app\\_%'\n                   or p.proname like '\\_auth' or p.proname like '\\_admin' or p.proname = 'hash_pw')\n  loop\n    begin\n      execute 'drop function if exists ' || f.sig || ' cascade';\n    exception when others then null;\n    end;\n  end loop;\nend $do$;\n\n-- =====================================================================\n-- 5) الواجهة المكشوفة: public.inv_app_xxx  (الرسمي)\n-- =====================================================================\ncreate or replace function public.inv_app_login(p_username text, p_password text, p_device text default null)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_login(p_username, p_password, p_device); $fn$;\n\ncreate or replace function public.inv_app_me(p_token text)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_me(p_token); $fn$;\n\ncreate or replace function public.inv_app_logout(p_token text)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_logout(p_token); $fn$;\n\ncreate or replace function public.inv_app_scan(p_token text, p_barcode text, p_qty numeric default 1, p_center uuid default null)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_scan(p_token, p_barcode, p_qty, p_center); $fn$;\n\ncreate or replace function public.inv_app_add_item(p_token text, p_name text, p_barcode text, p_unit text default 'قطعة', p_expected numeric default 0, p_category text default null, p_center uuid default null)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_add_item(p_token, p_name, p_barcode, p_unit, p_expected, p_category, p_center); $fn$;\n\ncreate or replace function public.inv_app_set_user_status(p_token text, p_user uuid, p_status text)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_set_user_status(p_token, p_user, p_status); $fn$;\n\ncreate or replace function public.inv_app_save_user(p_token text, p_id uuid default null, p_name text default null, p_username text default null, p_password text default null, p_role text default 'reader', p_center uuid default null, p_status text default 'active')\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_save_user(p_token, p_id, p_name, p_username, p_password, p_role, p_center, p_status); $fn$;\n\ncreate or replace function public.inv_app_set_center_status(p_token text, p_center uuid, p_status text)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_set_center_status(p_token, p_center, p_status); $fn$;\n\ncreate or replace function public.inv_app_snapshot(p_token text)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_snapshot(p_token); $fn$;\n\ncreate or replace function public.inv_app_scan_stats(p_token text)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_scan_stats(p_token); $fn$;\n\ncreate or replace function public.inv_app_reset_center(p_token text, p_center uuid)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_reset_center(p_token, p_center); $fn$;\n\n-- =====================================================================\n-- 6) الواجهة الاحتياطية: inv_api.app_xxx\n--    (تشتغل بعد إضافة inv_api في Project Settings → API → Exposed schemas)\n-- =====================================================================\ndrop schema if exists inv_api cascade;\ncreate schema inv_api;\ngrant usage on schema inv_api to anon, authenticated;\n\ncreate or replace function inv_api.app_login(p_username text, p_password text, p_device text default null)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_login(p_username, p_password, p_device); $fn$;\ncreate or replace function inv_api.app_me(p_token text)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_me(p_token); $fn$;\ncreate or replace function inv_api.app_logout(p_token text)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_logout(p_token); $fn$;\ncreate or replace function inv_api.app_scan(p_token text, p_barcode text, p_qty numeric default 1, p_center uuid default null)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_scan(p_token, p_barcode, p_qty, p_center); $fn$;\ncreate or replace function inv_api.app_add_item(p_token text, p_name text, p_barcode text, p_unit text default 'قطعة', p_expected numeric default 0, p_category text default null, p_center uuid default null)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_add_item(p_token, p_name, p_barcode, p_unit, p_expected, p_category, p_center); $fn$;\ncreate or replace function inv_api.app_set_user_status(p_token text, p_user uuid, p_status text)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_set_user_status(p_token, p_user, p_status); $fn$;\ncreate or replace function inv_api.app_save_user(p_token text, p_id uuid default null, p_name text default null, p_username text default null, p_password text default null, p_role text default 'reader', p_center uuid default null, p_status text default 'active')\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_save_user(p_token, p_id, p_name, p_username, p_password, p_role, p_center, p_status); $fn$;\ncreate or replace function inv_api.app_set_center_status(p_token text, p_center uuid, p_status text)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_set_center_status(p_token, p_center, p_status); $fn$;\ncreate or replace function inv_api.app_snapshot(p_token text)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_snapshot(p_token); $fn$;\ncreate or replace function inv_api.app_scan_stats(p_token text)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_scan_stats(p_token); $fn$;\ncreate or replace function inv_api.app_reset_center(p_token text, p_center uuid)\nreturns jsonb language sql security definer set search_path = inv, public as $fn$ select inv.app_reset_center(p_token, p_center); $fn$;\n\n-- =====================================================================\n-- 7) الصلاحيات: الدوال فقط، بدون أي وصول مباشر للجداول\n-- =====================================================================\nrevoke all on all tables    in schema inv from public, anon, authenticated;\nrevoke all on all sequences in schema inv from public, anon, authenticated;\nrevoke all on schema inv from public, anon, authenticated;\n\ngrant execute on all functions in schema public   to anon, authenticated;\ngrant execute on all functions in schema inv_api  to anon, authenticated;\n\nalter default privileges in schema public  grant execute on functions to anon, authenticated;\nalter default privileges in schema inv_api grant execute on functions to anon, authenticated;\n\ncommit;\n\n-- إعادة تحميل كاش الـ API (مهم: بعد كده الدوال تظهر فورًا)\nnotify pgrst, 'reload schema';\nnotify pgrst, 'reload config';\n\n-- =====================================================================\n-- 8) تأكيد نهائي — لازم تشوف 2 صفوف على الأقل\n-- =====================================================================\nselect n.nspname as schema, p.proname as function_name\n  from pg_proc p join pg_namespace n on n.oid = p.pronamespace\n where (n.nspname = 'public'  and p.proname like 'inv\\_app\\_%')\n    or (n.nspname = 'inv_api' and p.proname like 'app\\_%')\n order by 1, 2;\n";
+
+/* ============================ تشخيص الاتصال ============================ */
+async function diagTest() {
+  const box = $('#lgDiag');
+  const { url, key } = syncCfg();
+  const lines = [];
+  box.innerHTML = '⏳ جاري الفحص...';
+  const push = (ok, txt) => lines.push((ok ? '✅ ' : '❌ ') + txt);
+  push(!!url, 'رابط المشروع: ' + (url || 'غير موجود'));
+  push(!!key && key.length > 40, 'المفتاح: ' + (key ? (key.slice(0, 12) + '…' + key.slice(-6) + ' (' + key.length + ' حرف)') : 'غير موجود'));
+  if (key && key.split('.').length !== 3) {
+    lines.push('⚠️ المفتاح ده «publishable» مش JWT — لو السيرفر رد «Secret API key required» لازم تستبدله بمفتاح <b>anon</b> من Supabase → Settings → API Keys.');
+  }
+  // فحص الوصول للشبكة + وجود الدالة
+  for (const t of [{ n: 'inv_app_login', s: 'public' }, { n: 'app_login', s: 'inv_api' }]) {
+    try {
+      const headers = { 'Content-Type': 'application/json', 'apikey': key, 'Authorization': 'Bearer ' + key };
+      headers['Accept-Profile'] = t.s; headers['Content-Profile'] = t.s;
+      const r = await fetch(url + '/rest/v1/rpc/' + t.n, { method: 'POST', headers: headers, body: JSON.stringify({ p_username: '__test__', p_password: '__test__', p_device: 'diag' }) });
+      const txt = await r.text();
+      let d = null; try { d = txt ? JSON.parse(txt) : null; } catch (e) { }
+      if (r.ok) {
+        push(true, 'الدالة ' + t.s + '.' + t.n + ' شغّالة (رد السيرفر: ' + ((d && (d.msg || d.code)) || 'ok') + ')');
+      } else if (d && d.code === 'PGRST202') {
+        push(false, 'الدالة ' + t.s + '.' + t.n + ' غير موجودة في قاعدة البيانات → شغّل ملف SQL (supabase_fix_v3.sql).');
+      } else if (d && d.code === 'PGRST106') {
+        push(false, 'schema «' + t.s + '» غير مكشوف في إعدادات Supabase.');
+      } else {
+        push(false, t.s + '.' + t.n + ': ' + ((d && (d.message || d.hint)) || ('HTTP ' + r.status)));
+      }
+    } catch (e) { push(false, t.s + '.' + t.n + ': تعذّر الوصول (' + e.message + ')'); }
+  }
+  // فحص الأصناف والمسحات على السيرفر — يكشف الأصناف اللي من غير مركز
+  if (Session.token) {
+    const snap = await Cloud.snapshot();
+    if (!snap || !snap.ok) {
+      push(false, 'تعذّر تحميل البيانات (snapshot): ' + ((snap && (snap.msg || snap.code)) || '—'));
+    } else {
+      const us = snap.users || []; const its = snap.items || []; const ces = snap.centers || [];
+      push(true, 'المستخدمون: ' + us.length + ' · المراكز: ' + ces.length + ' · الأصناف: ' + its.length);
+      const orphan = its.filter(i => !i.center).length;
+      push(!orphan, 'أصناف بدون مركز: ' + orphan + (orphan ? ' ← اضغط «🔧 إصلاح الأصناف»' : ''));
+      const tot = snap.totals || {};
+      const perCenter = Object.keys(tot).map(k => {
+        const nm = (ces.find(c => c.id === k) || {}).name || (k === '' ? 'بدون مركز' : k);
+        const items = Object.keys(tot[k] || {}).length; return nm + ': ' + items + ' صنف عليه رصيد';
+      });
+      lines.push('📊 ' + (perCenter.join(' · ') || 'لا توجد مسحات'));
+      const sample = its.slice(0, 3).map(i => i.name + (i.center ? '' : ' ⚠️')).join(', ');
+      if (sample) lines.push('🔎 مثال: ' + sample);
+    }
+  }
+  box.innerHTML = lines.join('<br>');
+}
+
+function changeDbUrl() {
+  const cur = syncCfg().url;
+  const v = prompt('اكتب رابط مشروع Supabase (مثال: https://xxxx.supabase.co)\n\nلو مش متأكد سيب نفس الرابط:', cur);
+  if (v === null) return;
+  const clean = v.trim().replace(/\/+$/, '');
+  try {
+    if (clean) localStorage.setItem('smartinv.cfg.url', clean);
+    else localStorage.removeItem('smartinv.cfg.url');
+  } catch (e) { }
+  const cf = syncCfg();
+  $('#lgMode').textContent = cf.url ? '☁️ قاعدة بيانات' : '💾 أوفلاين';
+  Toast.ok('تم حفظ رابط قاعدة البيانات');
+  diagTest();
+}
+
+/* إقلاع */
+(function boot() {
+  DB.load();
+  DB.engine = 'local';
+  applyTheme();
+  bindEvents();
+  if (Session.restore()) {
+    // تحقق أن المركز ما زال موجودًا
+    enterApp();
+  } else showLogin();
+})();
+</script>
+</body>
+</html>
